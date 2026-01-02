@@ -3,12 +3,11 @@ const cors = require('cors');
 const axios = require('axios');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
 
-// In-memory storage (resets on cold start)
+// In-memory storage
 let mediaLibrary = [];
 let scraperConfig = {
     accounts: [],
@@ -143,7 +142,6 @@ async function runAutoScraper() {
             } else {
                 results.push({ account: account.username, success: false, error: data.error || 'Private' });
             }
-            await new Promise(r => setTimeout(r, 1000));
         } catch (error) {
             results.push({ account: account.username, success: false, error: error.message });
         }
@@ -164,7 +162,9 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api/instagram/:username', async (req, res) => {
-    if (!checkRateLimit(req.ip)) return res.status(429).json({ success: false, error: 'Rate limited' });
+    if (!checkRateLimit(req.ip || 'default')) {
+        return res.status(429).json({ success: false, error: 'Rate limited' });
+    }
     const username = extractUsername(req.params.username);
     if (!username) return res.status(400).json({ success: false, error: 'Invalid username' });
     res.json(await getInstagramData(username));
@@ -278,5 +278,5 @@ app.get('/api/proxy/image', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => console.log(`Running on port ${PORT}`));
+// Export for Vercel
 module.exports = app;
