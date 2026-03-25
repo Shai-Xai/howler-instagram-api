@@ -200,8 +200,8 @@ module.exports = async function(req, res) {
             });
         }
 
-        // Instagram fetch
-        if (path.indexOf('/api/instagram/') === 0) {
+        // Instagram fetch (skip reserved paths)
+        if (path.indexOf('/api/instagram/') === 0 && path !== '/api/instagram/probe' && path !== '/api/instagram/post' && path !== '/api/instagram/profile') {
             var username = path.replace('/api/instagram/', '');
             username = decodeURIComponent(username).trim().replace(/^@/, '');
             
