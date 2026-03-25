@@ -9168,9 +9168,15 @@
                     
                     <div id="instagram-loading-main" style="display: none; text-align: center; padding: 40px;">
                         <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
-                        <p style="color: var(--text-secondary);">Fetching Instagram posts...</p>
+                        <p style="color: var(--text-secondary);">Fetching Instagram posts, reels &amp; stories...</p>
                     </div>
-                    
+
+                    <div id="content-type-tabs-main" style="display: none; gap: 8px; margin-top: 16px; margin-bottom: 4px; flex-wrap: wrap;">
+                        <button class="btn btn-sm btn-primary" id="cttab-posts-main" onclick="switchContentType('posts','main')">📷 Posts <span id="cttab-posts-count-main"></span></button>
+                        <button class="btn btn-sm btn-ghost" id="cttab-reels-main" onclick="switchContentType('reels','main')">🎬 Reels <span id="cttab-reels-count-main"></span></button>
+                        <button class="btn btn-sm btn-ghost" id="cttab-stories-main" onclick="switchContentType('stories','main')">⚡ Stories <span id="cttab-stories-count-main"></span></button>
+                    </div>
+
                     <div class="instagram-grid" id="instagram-grid-main">
                         <!-- Instagram posts will be rendered here -->
                     </div>
@@ -12525,39 +12531,83 @@
             }
         }
         
+        // Store all fetched content by type
+        let fetchedContent = { posts: [], reels: [], stories: [] };
+        let activeContentType = 'posts';
+
+        function switchContentType(type, suffix) {
+            activeContentType = type;
+            const grid = document.getElementById(`instagram-grid-${suffix}`);
+            const actionsId = `instagram-actions-${suffix}`;
+            const countId = `selected-count-${suffix}`;
+            ['posts','reels','stories'].forEach(t => {
+                const btn = document.getElementById(`cttab-${t}-${suffix}`);
+                if (btn) { btn.className = t === type ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-ghost'; }
+            });
+            const items = fetchedContent[type] || [];
+            if (items.length === 0) {
+                grid.innerHTML = `<p style="color:var(--text-secondary);padding:20px;grid-column:1/-1;">No ${type} found for this profile.</p>`;
+                document.getElementById(actionsId).style.display = 'none';
+            } else {
+                renderInstagramGrid(grid, actionsId, countId, items, null);
+            }
+        }
+
         async function fetchInstagramPostsMain() {
             const input = document.getElementById('instagram-url-main').value.trim();
             const loading = document.getElementById('instagram-loading-main');
             const grid = document.getElementById('instagram-grid-main');
-            const actions = document.getElementById('instagram-actions-main');
-            
+            const tabsEl = document.getElementById('content-type-tabs-main');
+
             if (!input) {
                 showToast('Please enter an Instagram username or URL', 'warning');
                 return;
             }
-            
+
             loading.style.display = 'block';
             grid.innerHTML = '';
-            
+            if (tabsEl) tabsEl.style.display = 'none';
+            document.getElementById('instagram-actions-main').style.display = 'none';
+
             try {
                 const data = await fetchInstagramDirect(input);
-                
                 loading.style.display = 'none';
-                
+
                 if (data.success) {
                     if (data.profile.isPrivate) {
                         showToast('This profile is private. Cannot access posts.', 'error');
                         return;
                     }
-                    
-                    if (data.posts.length === 0) {
-                        showToast('No posts found for this profile', 'warning');
+
+                    fetchedContent = {
+                        posts: data.posts || [],
+                        reels: data.reels || [],
+                        stories: data.stories || []
+                    };
+
+                    const total = fetchedContent.posts.length + fetchedContent.reels.length + fetchedContent.stories.length;
+                    if (total === 0) {
+                        showToast('No content found for this profile', 'warning');
                         return;
                     }
-                    
-                    fetchedInstagramPosts = data.posts;
-                    renderInstagramGrid(grid, 'instagram-actions-main', 'selected-count-main', data.posts, data.profile);
-                    showToast(`Found ${data.posts.length} posts from @${data.profile.username}`, 'success');
+
+                    // Update tab counts
+                    ['posts','reels','stories'].forEach(t => {
+                        const el = document.getElementById(`cttab-${t}-count-main`);
+                        if (el) el.textContent = fetchedContent[t].length ? `(${fetchedContent[t].length})` : '';
+                    });
+
+                    // Show tabs and render profile header + default tab
+                    if (tabsEl) tabsEl.style.display = 'flex';
+                    const firstType = fetchedContent.posts.length ? 'posts' : fetchedContent.reels.length ? 'reels' : 'stories';
+                    renderInstagramGrid(grid, 'instagram-actions-main', 'selected-count-main', fetchedContent[firstType], data.profile);
+                    activeContentType = firstType;
+                    ['posts','reels','stories'].forEach(t => {
+                        const btn = document.getElementById(`cttab-${t}-main`);
+                        if (btn) btn.className = t === firstType ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-ghost';
+                    });
+
+                    showToast(`Fetched ${fetchedContent.posts.length} posts, ${fetchedContent.reels.length} reels, ${fetchedContent.stories.length} stories from @${data.profile.username}`, 'success');
                 } else {
                     showToast(data.error || 'Failed to fetch Instagram data', 'error');
                 }
@@ -12605,9 +12655,10 @@
                 // Use displayUrl for full image (not thumbnailUrl which is square cropped)
                 const imageUrl = `${INSTAGRAM_API_URL}/api/proxy/image?url=${encodeURIComponent(post.displayUrl)}`;
                 
+                const mediaBadge = post.mediaType === 'reel' ? '🎬' : post.mediaType === 'story' ? '⚡' : post.isVideo ? '▶' : '';
                 item.innerHTML = `
                     <img src="${imageUrl}" alt="Instagram post" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23262626%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2255%22 text-anchor=%22middle%22 fill=%22%23666%22 font-size=%2212%22>Image</text></svg>'">
-                    ${post.isVideo ? '<div class="video-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>' : ''}
+                    ${mediaBadge ? `<div class="video-badge" style="font-size:14px;padding:2px 4px;">${mediaBadge}</div>` : ''}
                     ${post.carouselMedia ? '<div class="carousel-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="18" height="18" rx="2"/></svg></div>' : ''}
                     <div class="select-overlay">
                         <div class="check-icon">
