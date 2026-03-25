@@ -329,6 +329,167 @@ module.exports = async function(req, res) {
             });
         }
 
+        // =====================================
+        // CMS PERSISTENCE ROUTES
+        // =====================================
+
+        if (path.startsWith('/api/cms')) {
+            var db = null;
+            try { db = require('@vercel/postgres').sql; } catch(e) {}
+
+            // Auto-init tables on first use
+            async function ensureTables(sql) {
+                await sql`CREATE TABLE IF NOT EXISTS cms_posts (id BIGINT PRIMARY KEY, data JSONB NOT NULL, updated_at TIMESTAMP DEFAULT NOW())`;
+                await sql`CREATE TABLE IF NOT EXISTS cms_events (id VARCHAR(200) PRIMARY KEY, data JSONB NOT NULL, updated_at TIMESTAMP DEFAULT NOW())`;
+                await sql`CREATE TABLE IF NOT EXISTS cms_artists (id VARCHAR(200) PRIMARY KEY, data JSONB NOT NULL, updated_at TIMESTAMP DEFAULT NOW())`;
+                await sql`CREATE TABLE IF NOT EXISTS cms_stages (id VARCHAR(200) PRIMARY KEY, data JSONB NOT NULL, updated_at TIMESTAMP DEFAULT NOW())`;
+                await sql`CREATE TABLE IF NOT EXISTS cms_performances (id VARCHAR(200) PRIMARY KEY, data JSONB NOT NULL, updated_at TIMESTAMP DEFAULT NOW())`;
+                await sql`CREATE TABLE IF NOT EXISTS cms_schedule (id BIGINT PRIMARY KEY, data JSONB NOT NULL, updated_at TIMESTAMP DEFAULT NOW())`;
+                await sql`CREATE TABLE IF NOT EXISTS cms_profile (id INTEGER PRIMARY KEY, data JSONB NOT NULL, updated_at TIMESTAMP DEFAULT NOW())`;
+            }
+
+            if (!db) {
+                return res.status(500).json({ success: false, error: 'Database not configured. Add Vercel Postgres and set POSTGRES_URL.' });
+            }
+
+            await ensureTables(db);
+
+            // GET all posts
+            if (path === '/api/cms/posts' && req.method === 'GET') {
+                var r = await db`SELECT data FROM cms_posts ORDER BY updated_at DESC`;
+                return res.status(200).json({ success: true, data: r.rows.map(function(x){ return x.data; }) });
+            }
+            // UPSERT post
+            if (path === '/api/cms/posts' && req.method === 'POST') {
+                var post = req.body;
+                if (!post || !post.id) return res.status(400).json({ error: 'id required' });
+                var ds = JSON.stringify(post);
+                await db`INSERT INTO cms_posts (id, data) VALUES (${post.id}, ${ds}::jsonb) ON CONFLICT (id) DO UPDATE SET data = ${ds}::jsonb, updated_at = NOW()`;
+                return res.status(200).json({ success: true });
+            }
+            // DELETE post
+            if (path.indexOf('/api/cms/posts/') === 0 && req.method === 'DELETE') {
+                var id = parseInt(path.replace('/api/cms/posts/', ''));
+                await db`DELETE FROM cms_posts WHERE id = ${id}`;
+                return res.status(200).json({ success: true });
+            }
+
+            // GET all events
+            if (path === '/api/cms/events' && req.method === 'GET') {
+                var r = await db`SELECT data FROM cms_events ORDER BY updated_at DESC`;
+                return res.status(200).json({ success: true, data: r.rows.map(function(x){ return x.data; }) });
+            }
+            // UPSERT event
+            if (path === '/api/cms/events' && req.method === 'POST') {
+                var ev = req.body;
+                if (!ev || !ev.id) return res.status(400).json({ error: 'id required' });
+                var ds = JSON.stringify(ev);
+                await db`INSERT INTO cms_events (id, data) VALUES (${String(ev.id)}, ${ds}::jsonb) ON CONFLICT (id) DO UPDATE SET data = ${ds}::jsonb, updated_at = NOW()`;
+                return res.status(200).json({ success: true });
+            }
+            // DELETE event
+            if (path.indexOf('/api/cms/events/') === 0 && req.method === 'DELETE') {
+                var id = path.replace('/api/cms/events/', '');
+                await db`DELETE FROM cms_events WHERE id = ${id}`;
+                return res.status(200).json({ success: true });
+            }
+
+            // GET all artists
+            if (path === '/api/cms/artists' && req.method === 'GET') {
+                var r = await db`SELECT data FROM cms_artists ORDER BY updated_at`;
+                return res.status(200).json({ success: true, data: r.rows.map(function(x){ return x.data; }) });
+            }
+            // UPSERT artist
+            if (path === '/api/cms/artists' && req.method === 'POST') {
+                var artist = req.body;
+                if (!artist || !artist.id) return res.status(400).json({ error: 'id required' });
+                var ds = JSON.stringify(artist);
+                await db`INSERT INTO cms_artists (id, data) VALUES (${String(artist.id)}, ${ds}::jsonb) ON CONFLICT (id) DO UPDATE SET data = ${ds}::jsonb, updated_at = NOW()`;
+                return res.status(200).json({ success: true });
+            }
+            // DELETE artist
+            if (path.indexOf('/api/cms/artists/') === 0 && req.method === 'DELETE') {
+                var id = path.replace('/api/cms/artists/', '');
+                await db`DELETE FROM cms_artists WHERE id = ${id}`;
+                return res.status(200).json({ success: true });
+            }
+
+            // GET all stages
+            if (path === '/api/cms/stages' && req.method === 'GET') {
+                var r = await db`SELECT data FROM cms_stages ORDER BY updated_at`;
+                return res.status(200).json({ success: true, data: r.rows.map(function(x){ return x.data; }) });
+            }
+            // UPSERT stage
+            if (path === '/api/cms/stages' && req.method === 'POST') {
+                var stage = req.body;
+                if (!stage || !stage.id) return res.status(400).json({ error: 'id required' });
+                var ds = JSON.stringify(stage);
+                await db`INSERT INTO cms_stages (id, data) VALUES (${String(stage.id)}, ${ds}::jsonb) ON CONFLICT (id) DO UPDATE SET data = ${ds}::jsonb, updated_at = NOW()`;
+                return res.status(200).json({ success: true });
+            }
+            // DELETE stage
+            if (path.indexOf('/api/cms/stages/') === 0 && req.method === 'DELETE') {
+                var id = path.replace('/api/cms/stages/', '');
+                await db`DELETE FROM cms_stages WHERE id = ${id}`;
+                return res.status(200).json({ success: true });
+            }
+
+            // GET all performances
+            if (path === '/api/cms/performances' && req.method === 'GET') {
+                var r = await db`SELECT data FROM cms_performances ORDER BY updated_at`;
+                return res.status(200).json({ success: true, data: r.rows.map(function(x){ return x.data; }) });
+            }
+            // UPSERT performance
+            if (path === '/api/cms/performances' && req.method === 'POST') {
+                var perf = req.body;
+                if (!perf || !perf.id) return res.status(400).json({ error: 'id required' });
+                var ds = JSON.stringify(perf);
+                await db`INSERT INTO cms_performances (id, data) VALUES (${String(perf.id)}, ${ds}::jsonb) ON CONFLICT (id) DO UPDATE SET data = ${ds}::jsonb, updated_at = NOW()`;
+                return res.status(200).json({ success: true });
+            }
+            // DELETE performance
+            if (path.indexOf('/api/cms/performances/') === 0 && req.method === 'DELETE') {
+                var id = path.replace('/api/cms/performances/', '');
+                await db`DELETE FROM cms_performances WHERE id = ${id}`;
+                return res.status(200).json({ success: true });
+            }
+
+            // GET all schedule items
+            if (path === '/api/cms/schedule' && req.method === 'GET') {
+                var r = await db`SELECT data FROM cms_schedule ORDER BY updated_at DESC`;
+                return res.status(200).json({ success: true, data: r.rows.map(function(x){ return x.data; }) });
+            }
+            // UPSERT schedule item
+            if (path === '/api/cms/schedule' && req.method === 'POST') {
+                var item = req.body;
+                if (!item || !item.id) return res.status(400).json({ error: 'id required' });
+                var ds = JSON.stringify(item);
+                await db`INSERT INTO cms_schedule (id, data) VALUES (${item.id}, ${ds}::jsonb) ON CONFLICT (id) DO UPDATE SET data = ${ds}::jsonb, updated_at = NOW()`;
+                return res.status(200).json({ success: true });
+            }
+            // DELETE schedule item
+            if (path.indexOf('/api/cms/schedule/') === 0 && req.method === 'DELETE') {
+                var id = parseInt(path.replace('/api/cms/schedule/', ''));
+                await db`DELETE FROM cms_schedule WHERE id = ${id}`;
+                return res.status(200).json({ success: true });
+            }
+
+            // GET profile
+            if (path === '/api/cms/profile' && req.method === 'GET') {
+                var r = await db`SELECT data FROM cms_profile WHERE id = 1`;
+                return res.status(200).json({ success: true, data: r.rows[0] ? r.rows[0].data : null });
+            }
+            // UPSERT profile
+            if (path === '/api/cms/profile' && req.method === 'PUT') {
+                var profile = req.body;
+                var ds = JSON.stringify(profile);
+                await db`INSERT INTO cms_profile (id, data) VALUES (1, ${ds}::jsonb) ON CONFLICT (id) DO UPDATE SET data = ${ds}::jsonb, updated_at = NOW()`;
+                return res.status(200).json({ success: true });
+            }
+
+            return res.status(404).json({ error: 'CMS route not found', path: path });
+        }
+
         // Not found
         return res.status(404).json({ error: 'Not found', path: path });
 
