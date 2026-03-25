@@ -104,12 +104,11 @@ export default async function handler(req, res) {
 
     // --- Reels ---
     let reels = [];
-    let _reelDebug = null;
     if (reelsRes.status === 'fulfilled' && reelsRes.value.ok) {
       const d = await reelsRes.value.json();
       const raw = d?.reels || d?.data || d?.items || [];
-      _reelDebug = { topKeys: Object.keys(d), item0Keys: raw[0] ? Object.keys(raw[0]) : null, item0: raw[0] || null };
-      reels = raw.map(r => mapMediaItem(r, 'reel'));
+      // Each reel item is wrapped: { node: { media: {...} }, cursor: "" }
+      reels = raw.map(r => mapMediaItem(r?.node?.media || r?.node || r, 'reel'));
     }
 
     // --- Stories ---
@@ -121,7 +120,7 @@ export default async function handler(req, res) {
     }
 
     // Debug: show raw first items so we can see field names
-    return res.status(200).json({ success: true, profile, posts, reels, stories, _reelDebug });
+    return res.status(200).json({ success: true, profile, posts, reels, stories });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
   }
