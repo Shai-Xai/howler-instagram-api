@@ -2,9 +2,13 @@
   "version": 2,
   "builds": [
     { "src": "index.js", "use": "@vercel/node" },
+    { "src": "api/instagram/post.js", "use": "@vercel/node" },
+    { "src": "api/instagram/profile.js", "use": "@vercel/node" },
     { "src": "howler-cms.html", "use": "@vercel/static" }
   ],
   "routes": [
+    { "src": "/api/instagram/post", "dest": "/api/instagram/post.js" },
+    { "src": "/api/instagram/profile", "dest": "/api/instagram/profile.js" },
     { "src": "/api/(.*)", "dest": "/index.js" },
     { "src": "/", "dest": "/howler-cms.html" }
   ]
