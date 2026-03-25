@@ -24,7 +24,7 @@ export default async function handler(req, res) {
 
     // Handle various possible response shapes
     const user = data?.data?.user || data?.user || (data?.username ? data : null);
-    if (!user?.username) return res.status(404).json({ success: false, error: 'User not found' });
+    if (!user?.username) return res.status(404).json({ success: false, error: 'User not found', _rawKeys: Object.keys(data || {}), _raw: JSON.stringify(data).slice(0, 500) });
 
     const edges = user.edge_owner_to_timeline_media?.edges || [];
     const posts = edges.map(e => {
