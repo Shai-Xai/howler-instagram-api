@@ -12348,22 +12348,23 @@
                 return;
             }
             
-            // Extract shortcode from URL
-            const shortcodeMatch = url.match(/instagram\.com\/(?:p|reel|tv)\/([A-Za-z0-9_-]+)/);
+            // Extract shortcode and type from URL
+            const shortcodeMatch = url.match(/instagram\.com\/(p|reel|tv)\/([A-Za-z0-9_-]+)/);
             if (!shortcodeMatch) {
                 showToast('Invalid Instagram post link. Use format: instagram.com/p/ABC123', 'error');
                 return;
             }
-            
-            const shortcode = shortcodeMatch[1];
-            
+
+            const mediaType = shortcodeMatch[1] === 'p' ? 'post' : 'reel';
+            const shortcode = shortcodeMatch[2];
+
             // Show loading
             document.getElementById('instagram-loading-main').style.display = 'block';
             document.getElementById('post-link-preview').style.display = 'none';
-            
+
             try {
                 // Use backend API to avoid CORS
-                const response = await fetch(`${INSTAGRAM_API_URL}/api/instagram/post?shortcode=${shortcode}`);
+                const response = await fetch(`${INSTAGRAM_API_URL}/api/instagram/post?shortcode=${shortcode}&type=${mediaType}`);
                 const data = await response.json();
                 
                 if (data.success) {
