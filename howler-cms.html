@@ -12544,10 +12544,11 @@
                 const btn = document.getElementById(`cttab-${t}-${suffix}`);
                 if (btn) { btn.className = t === type ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-ghost'; }
             });
+            grid.innerHTML = '';
+            document.getElementById(actionsId).style.display = 'none';
             const items = fetchedContent[type] || [];
             if (items.length === 0) {
                 grid.innerHTML = `<p style="color:var(--text-secondary);padding:20px;grid-column:1/-1;">No ${type} found for this profile.</p>`;
-                document.getElementById(actionsId).style.display = 'none';
             } else {
                 renderInstagramGrid(grid, actionsId, countId, items, null);
             }
