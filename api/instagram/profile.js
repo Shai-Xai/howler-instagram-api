@@ -22,22 +22,22 @@ export default async function handler(req, res) {
 
     const data = await r.json();
 
-    // Handle various possible response shapes
-    const user = data?.data?.user || data?.user || (data?.username ? data : null);
-    if (!user?.username) return res.status(404).json({ success: false, error: 'User not found', _rawKeys: Object.keys(data || {}), _raw: JSON.stringify(data).slice(0, 500) });
+    // API returns { user_data: {...}, user_posts: [...] }
+    const user = data?.user_data || data?.data?.user || data?.user || (data?.username ? data : null);
+    if (!user?.username && !user?.pk) return res.status(404).json({ success: false, error: 'User not found' });
 
-    const edges = user.edge_owner_to_timeline_media?.edges || [];
-    const posts = edges.map(e => {
-      const n = e.node || e;
+    const rawPosts = data?.user_posts || [];
+    const posts = rawPosts.map(p => {
+      const n = p?.node || p;
       return {
-        id: n.id,
-        shortcode: n.shortcode,
-        displayUrl: n.display_url,
-        thumbnailUrl: n.thumbnail_src || n.display_url,
-        caption: n.edge_media_to_caption?.edges?.[0]?.node?.text || '',
-        likes: n.edge_liked_by?.count || 0,
-        comments: n.edge_media_to_comment?.count || 0,
-        isVideo: !!n.is_video
+        id: n.id || n.pk,
+        shortcode: n.shortcode || n.code,
+        displayUrl: n.display_url || n.image_versions2?.candidates?.[0]?.url || n.thumbnail_url || '',
+        thumbnailUrl: n.thumbnail_src || n.display_url || n.image_versions2?.candidates?.[0]?.url || '',
+        caption: n.edge_media_to_caption?.edges?.[0]?.node?.text || n.caption?.text || '',
+        likes: n.edge_liked_by?.count || n.like_count || 0,
+        comments: n.edge_media_to_comment?.count || n.comment_count || 0,
+        isVideo: !!(n.is_video || n.media_type === 2)
       };
     });
 
@@ -46,13 +46,13 @@ export default async function handler(req, res) {
       profile: {
         username: user.username,
         fullName: user.full_name || '',
-        bio: user.biography || '',
+        bio: user.biography || user.bio || '',
         profilePic: user.profile_pic_url_hd || user.profile_pic_url || '',
-        followers: user.edge_followed_by?.count || 0,
-        following: user.edge_follow?.count || 0,
-        postsCount: user.edge_owner_to_timeline_media?.count || 0,
-        isPrivate: !!user.is_private,
-        isVerified: !!user.is_verified
+        followers: user.edge_followed_by?.count || user.follower_count || 0,
+        following: user.edge_follow?.count || user.following_count || 0,
+        postsCount: user.edge_owner_to_timeline_media?.count || user.media_count || 0,
+        isPrivate: !!(user.is_private),
+        isVerified: !!(user.is_verified)
       },
       posts
     });
