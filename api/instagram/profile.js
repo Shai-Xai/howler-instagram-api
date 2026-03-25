@@ -91,7 +91,11 @@ export default async function handler(req, res) {
         };
       }
     }
-    if (!profile) return res.status(404).json({ success: false, error: 'User not found' });
+    if (!profile) {
+      const debugD = profileRes.status === 'fulfilled' && profileRes.value.ok ? await profileRes.value.json().catch(() => null) : null;
+      const debugStatus = profileRes.status === 'fulfilled' ? profileRes.value.status : 'rejected';
+      return res.status(404).json({ success: false, error: 'User not found', _profileStatus: debugStatus, _profileKeys: debugD ? Object.keys(debugD) : null, _raw: debugD ? JSON.stringify(debugD).slice(0, 300) : null });
+    }
 
     // --- Posts ---
     let posts = [];
