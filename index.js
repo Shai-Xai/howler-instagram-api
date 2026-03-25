@@ -271,7 +271,7 @@ module.exports = async function(req, res) {
                     var txt = await pr.text();
                     try {
                         var j = JSON.parse(txt);
-                        var sample = Array.isArray(j) ? j[0] : (j.data?.[0] || j.items?.[0] || null);
+                        var sample = Array.isArray(j) ? j[0] : (j.posts?.[0] || j.reels?.[0] || j.data?.[0] || j.items?.[0] || null);
                         probeResults[ep] = { status: pr.status, topKeys: Object.keys(j), firstItemKeys: sample ? Object.keys(sample) : null };
                     }
                     catch(e) { probeResults[ep] = { status: pr.status, body: txt.slice(0, 200) }; }
