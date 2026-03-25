@@ -251,25 +251,28 @@ module.exports = async function(req, res) {
             var probeKey = process.env.RAPIDAPI_KEY;
             var probeUrl = `https://www.instagram.com/${probeUser}/`;
             var endpoints = [
+                'get_user_posts.php',
+                'get_user_reels.php',
+                'get_user_stories.php',
+                'ig_get_user_posts.php',
                 'ig_get_user_reels.php',
                 'ig_get_user_stories.php',
-                'ig_get_user_posts.php',
-                'ig_get_user_media.php',
-                'ig_get_reels.php',
-                'ig_get_stories.php',
-                'ig_get_posts.php',
-                'get_user_reels_by_username.php',
-                'get_reels.php',
-                'get_stories.php',
-                'ig_profile_reels.php',
-                'ig_user_reels.php',
+                'user_posts.php',
+                'user_reels.php',
+                'user_stories.php',
             ];
+            var probeBody = JSON.stringify({ username_or_url: probeUrl });
+            var probeHeaders = {
+                'x-rapidapi-key': probeKey,
+                'x-rapidapi-host': 'instagram-scraper-stable-api.p.rapidapi.com',
+                'Content-Type': 'application/json'
+            };
             var probeResults = {};
             await Promise.all(endpoints.map(async function(ep) {
                 try {
                     var pr = await fetch(
-                        `https://instagram-scraper-stable-api.p.rapidapi.com/${ep}?username_or_url=${encodeURIComponent(probeUrl)}`,
-                        { headers: { 'x-rapidapi-key': probeKey, 'x-rapidapi-host': 'instagram-scraper-stable-api.p.rapidapi.com' } }
+                        `https://instagram-scraper-stable-api.p.rapidapi.com/${ep}`,
+                        { method: 'POST', headers: probeHeaders, body: probeBody }
                     );
                     var txt = await pr.text();
                     try { var j = JSON.parse(txt); probeResults[ep] = { status: pr.status, keys: Object.keys(j) }; }
