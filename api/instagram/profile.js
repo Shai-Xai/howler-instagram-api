@@ -118,7 +118,14 @@ export default async function handler(req, res) {
       stories = raw.slice(0, 12).map(s => mapMediaItem(s, 'story'));
     }
 
-    return res.status(200).json({ success: true, profile, posts, reels, stories });
+    // Debug: show raw first items so we can see field names
+    const _debug = {
+      postItem0Keys: posts[0] ? Object.keys(posts[0]) : null,
+      postItem0: posts[0] || null,
+      reelItem0: reels[0] || null,
+      storyItem0: stories[0] || null,
+    };
+    return res.status(200).json({ success: true, profile, posts, reels, stories, _debug });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
   }
