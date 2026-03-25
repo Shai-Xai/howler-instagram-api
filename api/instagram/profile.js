@@ -23,6 +23,7 @@ function mapMediaItem(n, mediaType) {
   return {
     id: node.id || node.pk || '',
     shortcode: node.shortcode || node.code || '',
+    displayUrl: thumb,
     thumbnailUrl: thumb,
     videoUrl: isVideo ? videoUrl : '',
     caption: node.edge_media_to_caption?.edges?.[0]?.node?.text || node.caption?.text || '',
@@ -68,7 +69,7 @@ export default async function handler(req, res) {
       fetch(`${BASE}/get_ig_user_stories.php`, {
         method: 'POST',
         headers: { ...rapidHeaders(apiKey), 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: formBody({ username_or_url: igUrl }),
+        body: formBody({ username_or_url: igUrl, amount: 12 }),
       }),
     ]);
 
@@ -91,11 +92,7 @@ export default async function handler(req, res) {
         };
       }
     }
-    if (!profile) {
-      const debugD = profileRes.status === 'fulfilled' && profileRes.value.ok ? await profileRes.value.json().catch(() => null) : null;
-      const debugStatus = profileRes.status === 'fulfilled' ? profileRes.value.status : 'rejected';
-      return res.status(404).json({ success: false, error: 'User not found', _profileStatus: debugStatus, _profileKeys: debugD ? Object.keys(debugD) : null, _raw: debugD ? JSON.stringify(debugD).slice(0, 300) : null });
-    }
+    if (!profile) return res.status(404).json({ success: false, error: 'User not found' });
 
     // --- Posts ---
     let posts = [];
@@ -118,7 +115,7 @@ export default async function handler(req, res) {
     if (storiesRes.status === 'fulfilled' && storiesRes.value.ok) {
       const d = await storiesRes.value.json();
       const raw = Array.isArray(d) ? d : (d?.data || d?.items || []);
-      stories = raw.map(s => mapMediaItem(s, 'story'));
+      stories = raw.slice(0, 12).map(s => mapMediaItem(s, 'story'));
     }
 
     return res.status(200).json({ success: true, profile, posts, reels, stories });
