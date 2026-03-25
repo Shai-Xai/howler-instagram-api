@@ -38,7 +38,7 @@ export default async function handler(req, res) {
       media?.title || '';
 
     if (!thumbnailUrl) {
-      return res.status(404).json({ success: false, error: 'Post not found or is private', _rawKeys: Object.keys(data || {}), _raw: JSON.stringify(data).slice(0, 500) });
+      return res.status(404).json({ success: false, error: 'Post not found or is private' });
     }
 
     return res.status(200).json({
