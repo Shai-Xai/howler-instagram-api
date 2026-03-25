@@ -245,41 +245,6 @@ module.exports = async function(req, res) {
             });
         }
 
-        // Probe RapidAPI endpoints
-        if (path === '/api/instagram/probe' && req.query && req.query.username) {
-            var probeUser = req.query.username;
-            var probeKey = process.env.RAPIDAPI_KEY;
-            var probeUrl = `https://www.instagram.com/${probeUser}/`;
-            var endpoints = [
-                'get_ig_user_posts.php',
-                'get_ig_user_reels.php',
-                'get_ig_user_stories.php',
-            ];
-            var formBody = `username_or_url=${encodeURIComponent(probeUrl)}&amount=6`;
-            var probeHeaders = {
-                'x-rapidapi-key': probeKey,
-                'x-rapidapi-host': 'instagram-scraper-stable-api.p.rapidapi.com',
-                'Content-Type': 'application/x-www-form-urlencoded'
-            };
-            var probeResults = {};
-            await Promise.all(endpoints.map(async function(ep) {
-                try {
-                    var pr = await fetch(
-                        `https://instagram-scraper-stable-api.p.rapidapi.com/${ep}`,
-                        { method: 'POST', headers: probeHeaders, body: formBody }
-                    );
-                    var txt = await pr.text();
-                    try {
-                        var j = JSON.parse(txt);
-                        var sample = Array.isArray(j) ? j[0] : (j.posts?.[0] || j.reels?.[0] || j.data?.[0] || j.items?.[0] || null);
-                        probeResults[ep] = { status: pr.status, topKeys: Object.keys(j), firstItemKeys: sample ? Object.keys(sample) : null };
-                    }
-                    catch(e) { probeResults[ep] = { status: pr.status, body: txt.slice(0, 200) }; }
-                } catch(e) { probeResults[ep] = { error: e.message }; }
-            }));
-            return res.status(200).json(probeResults);
-        }
-
         // Image proxy
         if (path === '/api/proxy/image') {
             var imageUrl = req.query && req.query.url;
