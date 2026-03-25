@@ -245,6 +245,34 @@ module.exports = async function(req, res) {
             });
         }
 
+        // Probe RapidAPI endpoints
+        if (path === '/api/instagram/probe' && req.query && req.query.username) {
+            var probeUser = req.query.username;
+            var probeKey = process.env.RAPIDAPI_KEY;
+            var probeUrl = `https://www.instagram.com/${probeUser}/`;
+            var endpoints = [
+                'get_user_reels.php',
+                'get_user_stories.php',
+                'get_user_tagged_posts.php',
+                'get_user_media.php',
+                'ig_get_user_posts_by_username.php',
+                'get_posts.php',
+            ];
+            var probeResults = {};
+            await Promise.all(endpoints.map(async function(ep) {
+                try {
+                    var pr = await fetch(
+                        `https://instagram-scraper-stable-api.p.rapidapi.com/${ep}?username_or_url=${encodeURIComponent(probeUrl)}`,
+                        { headers: { 'x-rapidapi-key': probeKey, 'x-rapidapi-host': 'instagram-scraper-stable-api.p.rapidapi.com' } }
+                    );
+                    var txt = await pr.text();
+                    try { var j = JSON.parse(txt); probeResults[ep] = { status: pr.status, keys: Object.keys(j) }; }
+                    catch(e) { probeResults[ep] = { status: pr.status, body: txt.slice(0, 100) }; }
+                } catch(e) { probeResults[ep] = { error: e.message }; }
+            }));
+            return res.status(200).json(probeResults);
+        }
+
         // Image proxy
         if (path === '/api/proxy/image') {
             var imageUrl = req.query && req.query.url;
