@@ -6171,6 +6171,8 @@
         }
 
         let currentSignIn = null;
+        let currentSignUp = null;
+        let authMode = 'signin'; // 'signin' or 'signup'
 
         async function sendOTP() {
             const email = document.getElementById('auth-email-input').value.trim();
@@ -6186,24 +6188,45 @@
             btn.textContent = 'Sending…';
 
             try {
+                // Try sign-in first
+                authMode = 'signin';
                 currentSignIn = await window.Clerk.client.signIn.create({ identifier: email });
                 const factor = currentSignIn.supportedFirstFactors.find(f => f.strategy === 'email_code');
                 await currentSignIn.prepareFirstFactor({
                     strategy: 'email_code',
                     emailAddressId: factor.emailAddressId
                 });
-
-                document.getElementById('auth-email-display').textContent = email;
-                showAuthScreen('check');
-                setTimeout(() => document.getElementById('auth-otp-input').focus(), 100);
             } catch (err) {
-                const msg = err.errors?.[0]?.longMessage || err.errors?.[0]?.message || err.message || 'Failed to send code';
-                const errEl = document.getElementById('auth-error');
-                errEl.textContent = msg;
-                errEl.style.display = 'block';
-                btn.disabled = false;
-                btn.textContent = 'Continue with email';
+                const code = err.errors?.[0]?.code;
+                if (code === 'form_identifier_not_found' || code === 'form_password_incorrect') {
+                    // Account doesn't exist — sign up instead
+                    try {
+                        authMode = 'signup';
+                        currentSignUp = await window.Clerk.client.signUp.create({ emailAddress: email });
+                        await currentSignUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+                    } catch (signUpErr) {
+                        const msg = signUpErr.errors?.[0]?.longMessage || signUpErr.errors?.[0]?.message || 'Failed to send code';
+                        const errEl = document.getElementById('auth-error');
+                        errEl.textContent = msg;
+                        errEl.style.display = 'block';
+                        btn.disabled = false;
+                        btn.textContent = 'Continue with email';
+                        return;
+                    }
+                } else {
+                    const msg = err.errors?.[0]?.longMessage || err.errors?.[0]?.message || err.message || 'Failed to send code';
+                    const errEl = document.getElementById('auth-error');
+                    errEl.textContent = msg;
+                    errEl.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'Continue with email';
+                    return;
+                }
             }
+
+            document.getElementById('auth-email-display').textContent = email;
+            showAuthScreen('check');
+            setTimeout(() => document.getElementById('auth-otp-input').focus(), 100);
         }
 
         async function verifyOTP() {
@@ -6215,10 +6238,22 @@
             btn.textContent = 'Verifying…';
 
             try {
-                const result = await currentSignIn.attemptFirstFactor({ strategy: 'email_code', code });
+                let sessionId;
 
-                if (result.status === 'complete') {
-                    await window.Clerk.setActive({ session: result.createdSessionId });
+                if (authMode === 'signup') {
+                    const result = await currentSignUp.attemptEmailAddressVerification({ code });
+                    if (result.status === 'complete') {
+                        sessionId = result.createdSessionId;
+                    }
+                } else {
+                    const result = await currentSignIn.attemptFirstFactor({ strategy: 'email_code', code });
+                    if (result.status === 'complete') {
+                        sessionId = result.createdSessionId;
+                    }
+                }
+
+                if (sessionId) {
+                    await window.Clerk.setActive({ session: sessionId });
                     const memberships = await window.Clerk.user.getOrganizationMemberships();
                     const orgs = memberships.data || memberships;
                     if (orgs.length === 0) {
