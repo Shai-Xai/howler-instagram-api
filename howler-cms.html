@@ -3489,7 +3489,13 @@
                 <div class="auth-subtitle">Choose which organisation to work in.</div>
                 <div class="org-list" id="auth-org-list"></div>
                 <div class="auth-divider">or</div>
-                <button class="auth-btn" style="background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border-color)" onclick="openCreateOrg()">+ Create new organisation</button>
+                <div id="create-org-form" style="display:none">
+                    <input type="text" class="auth-input" id="new-org-name" placeholder="Organisation name" onkeydown="if(event.key==='Enter') createOrg()">
+                    <div id="create-org-error" style="display:none;color:var(--error);font-size:13px;margin-bottom:10px;text-align:left;padding:10px 12px;background:rgba(255,59,92,0.1);border-radius:8px"></div>
+                    <button class="auth-btn" id="create-org-btn" onclick="createOrg()">Create Organisation</button>
+                    <div class="auth-back" onclick="document.getElementById('create-org-form').style.display='none';document.getElementById('show-create-org-btn').style.display='block'">← Cancel</div>
+                </div>
+                <button class="auth-btn" id="show-create-org-btn" style="background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border-color)" onclick="document.getElementById('show-create-org-btn').style.display='none';document.getElementById('create-org-form').style.display='block';setTimeout(()=>document.getElementById('new-org-name').focus(),50)">+ Create new organisation</button>
             </div>
         </div>
     </div>
@@ -6321,10 +6327,26 @@
             launchCMS();
         }
 
-        function openCreateOrg() {
-            window.Clerk.openCreateOrganization({
-                afterCreateOrganizationUrl: window.location.href
-            });
+        async function createOrg() {
+            const name = document.getElementById('new-org-name').value.trim();
+            if (!name) return;
+
+            const btn = document.getElementById('create-org-btn');
+            btn.disabled = true;
+            btn.textContent = 'Creating…';
+
+            try {
+                const org = await window.Clerk.createOrganization({ name });
+                await window.Clerk.setActive({ organization: org.id });
+                launchCMS();
+            } catch (err) {
+                const msg = err.errors?.[0]?.longMessage || err.errors?.[0]?.message || err.message || 'Failed to create organisation';
+                const errEl = document.getElementById('create-org-error');
+                errEl.textContent = msg;
+                errEl.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Create Organisation';
+            }
         }
 
         function launchCMS() {
@@ -6352,6 +6374,8 @@
             const memberships = await window.Clerk.user.getOrganizationMemberships();
             const orgs = memberships.data || memberships;
             renderOrgList(orgs);
+            document.getElementById('create-org-form').style.display = 'none';
+            document.getElementById('show-create-org-btn').style.display = 'block';
             showAuthScreen('org');
         }
 
