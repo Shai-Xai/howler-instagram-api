@@ -6242,11 +6242,22 @@
 
                 if (authMode === 'signup') {
                     const result = await currentSignUp.attemptEmailAddressVerification({ code });
+                    console.log('signup result:', result.status, result.missingFields, result.createdSessionId);
                     if (result.status === 'complete') {
                         sessionId = result.createdSessionId;
+                    } else if (result.status === 'missing_requirements') {
+                        // Some fields required (e.g. first name) — supply empty defaults
+                        const update = {};
+                        if (result.missingFields?.includes('first_name')) update.firstName = 'User';
+                        if (result.missingFields?.includes('last_name')) update.lastName = '';
+                        if (result.missingFields?.includes('username')) update.username = 'user_' + Date.now();
+                        const updated = await currentSignUp.update(update);
+                        console.log('updated result:', updated.status, updated.createdSessionId);
+                        if (updated.status === 'complete') sessionId = updated.createdSessionId;
                     }
                 } else {
                     const result = await currentSignIn.attemptFirstFactor({ strategy: 'email_code', code });
+                    console.log('signin result:', result.status, result.createdSessionId);
                     if (result.status === 'complete') {
                         sessionId = result.createdSessionId;
                     }
