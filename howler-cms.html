@@ -6144,24 +6144,29 @@
                 return;
             }
 
-            // User is signed in — check active org
+            await handleSignedInUser();
+        }
+
+        async function handleSignedInUser() {
             if (!window.Clerk.organization) {
-                const memberships = await window.Clerk.user.getOrganizationMemberships();
-                const orgs = memberships.data || memberships;
+                let orgs = [];
+                try {
+                    const memberships = await window.Clerk.user.getOrganizationMemberships();
+                    orgs = memberships.data || memberships || [];
+                } catch(e) {}
+
                 if (orgs.length === 1) {
                     await window.Clerk.setActive({ organization: orgs[0].organization.id });
-                } else if (orgs.length > 1) {
-                    renderOrgList(orgs);
-                    showAuthScreen('org');
-                    return;
+                    launchCMS();
                 } else {
-                    renderOrgList([]);
+                    renderOrgList(orgs);
+                    document.getElementById('create-org-form').style.display = 'none';
+                    document.getElementById('show-create-org-btn').style.display = 'block';
                     showAuthScreen('org');
-                    return;
                 }
+            } else {
+                launchCMS();
             }
-
-            launchCMS();
         }
 
         function showAuthScreen(step) {
@@ -6204,7 +6209,10 @@
                 });
             } catch (err) {
                 const code = err.errors?.[0]?.code;
-                if (code === 'form_identifier_not_found' || code === 'form_password_incorrect') {
+                if (code === 'identifier_already_signed_in' || (window.Clerk.user)) {
+                    await handleSignedInUser();
+                    return;
+                } else if (code === 'form_identifier_not_found' || code === 'form_password_incorrect') {
                     // Account doesn't exist — sign up instead
                     try {
                         authMode = 'signup';
