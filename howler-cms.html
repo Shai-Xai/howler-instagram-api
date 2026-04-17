@@ -6252,20 +6252,29 @@
                     }
                 }
 
-                if (sessionId) {
-                    await window.Clerk.setActive({ session: sessionId });
-                    const memberships = await window.Clerk.user.getOrganizationMemberships();
-                    const orgs = memberships.data || memberships;
-                    if (orgs.length === 0) {
-                        renderOrgList([]);
-                        showAuthScreen('org');
-                    } else if (orgs.length === 1) {
-                        await window.Clerk.setActive({ organization: orgs[0].organization.id });
-                        launchCMS();
-                    } else {
-                        renderOrgList(orgs);
-                        showAuthScreen('org');
-                    }
+                if (!sessionId) {
+                    throw new Error('Verification incomplete — please try again.');
+                }
+
+                await window.Clerk.setActive({ session: sessionId });
+
+                // Reload user after setActive
+                const user = window.Clerk.user;
+                let orgs = [];
+                try {
+                    const memberships = await user.getOrganizationMemberships();
+                    orgs = memberships.data || memberships || [];
+                } catch (e) { orgs = []; }
+
+                if (orgs.length === 0) {
+                    renderOrgList([]);
+                    showAuthScreen('org');
+                } else if (orgs.length === 1) {
+                    await window.Clerk.setActive({ organization: orgs[0].organization.id });
+                    launchCMS();
+                } else {
+                    renderOrgList(orgs);
+                    showAuthScreen('org');
                 }
             } catch (err) {
                 const msg = err.errors?.[0]?.longMessage || err.errors?.[0]?.message || err.message || 'Invalid code';
