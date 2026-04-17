@@ -3467,21 +3467,19 @@
             <!-- Step 1: Email input -->
             <div id="auth-email-step">
                 <div class="auth-title">Welcome back</div>
-                <div class="auth-subtitle">Sign in with your email — we'll send you a magic link.</div>
-                <input type="email" class="auth-input" id="auth-email-input" placeholder="you@company.com" onkeydown="if(event.key==='Enter') sendMagicLink()" oninput="document.getElementById('auth-error').style.display='none'">
+                <div class="auth-subtitle">Sign in with your email — we'll send you a one-time code.</div>
+                <input type="email" class="auth-input" id="auth-email-input" placeholder="you@company.com" onkeydown="if(event.key==='Enter') sendOTP()" oninput="document.getElementById('auth-error').style.display='none'">
                 <div id="auth-error" style="display:none;color:var(--error);font-size:13px;margin-bottom:10px;text-align:left;padding:10px 12px;background:rgba(255,59,92,0.1);border-radius:8px"></div>
-                <button class="auth-btn" id="auth-send-btn" onclick="sendMagicLink()">Continue with email</button>
+                <button class="auth-btn" id="auth-send-btn" onclick="sendOTP()">Continue with email</button>
             </div>
 
-            <!-- Step 2: Check email -->
+            <!-- Step 2: Enter OTP code -->
             <div id="auth-check-step" style="display:none">
-                <div class="auth-check-icon">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00d26a" stroke-width="2.5">
-                        <path d="M20 6L9 17l-5-5"/>
-                    </svg>
-                </div>
                 <div class="auth-title">Check your email</div>
-                <div class="auth-subtitle">We sent a sign-in link to<br><strong id="auth-email-display" style="color:var(--text-primary)"></strong></div>
+                <div class="auth-subtitle">We sent a 6-digit code to<br><strong id="auth-email-display" style="color:var(--text-primary)"></strong></div>
+                <input type="text" class="auth-input" id="auth-otp-input" placeholder="000000" maxlength="6" style="text-align:center;letter-spacing:8px;font-size:22px;margin-top:16px" onkeydown="if(event.key==='Enter') verifyOTP()">
+                <div id="auth-otp-error" style="display:none;color:var(--error);font-size:13px;margin-bottom:10px;text-align:left;padding:10px 12px;background:rgba(255,59,92,0.1);border-radius:8px"></div>
+                <button class="auth-btn" id="auth-verify-btn" onclick="verifyOTP()">Verify code</button>
                 <div class="auth-back" onclick="showEmailStep()">← Use a different email</div>
             </div>
 
@@ -6172,37 +6170,75 @@
             showAuthScreen('email');
         }
 
-        async function sendMagicLink() {
+        let currentSignIn = null;
+
+        async function sendOTP() {
             const email = document.getElementById('auth-email-input').value.trim();
-            if (!email) { showToast('Please enter your email', 'warning'); return; }
+            if (!email) {
+                const errEl = document.getElementById('auth-error');
+                errEl.textContent = 'Please enter your email';
+                errEl.style.display = 'block';
+                return;
+            }
 
             const btn = document.getElementById('auth-send-btn');
             btn.disabled = true;
             btn.textContent = 'Sending…';
 
             try {
-                const signIn = await window.Clerk.client.signIn.create({
-                    strategy: 'email_link',
-                    identifier: email,
-                    redirectUrl: window.location.origin + window.location.pathname
-                });
-
-                const factor = signIn.supportedFirstFactors.find(f => f.strategy === 'email_link');
-                await signIn.prepareFirstFactor({
-                    strategy: 'email_link',
-                    emailAddressId: factor.emailAddressId,
-                    redirectUrl: window.location.origin + window.location.pathname
+                currentSignIn = await window.Clerk.client.signIn.create({ identifier: email });
+                const factor = currentSignIn.supportedFirstFactors.find(f => f.strategy === 'email_code');
+                await currentSignIn.prepareFirstFactor({
+                    strategy: 'email_code',
+                    emailAddressId: factor.emailAddressId
                 });
 
                 document.getElementById('auth-email-display').textContent = email;
                 showAuthScreen('check');
+                setTimeout(() => document.getElementById('auth-otp-input').focus(), 100);
             } catch (err) {
-                const msg = err.errors?.[0]?.longMessage || err.errors?.[0]?.message || err.message || 'Failed to send link';
+                const msg = err.errors?.[0]?.longMessage || err.errors?.[0]?.message || err.message || 'Failed to send code';
                 const errEl = document.getElementById('auth-error');
                 errEl.textContent = msg;
                 errEl.style.display = 'block';
                 btn.disabled = false;
                 btn.textContent = 'Continue with email';
+            }
+        }
+
+        async function verifyOTP() {
+            const code = document.getElementById('auth-otp-input').value.trim();
+            if (!code) return;
+
+            const btn = document.getElementById('auth-verify-btn');
+            btn.disabled = true;
+            btn.textContent = 'Verifying…';
+
+            try {
+                const result = await currentSignIn.attemptFirstFactor({ strategy: 'email_code', code });
+
+                if (result.status === 'complete') {
+                    await window.Clerk.setActive({ session: result.createdSessionId });
+                    const memberships = await window.Clerk.user.getOrganizationMemberships();
+                    const orgs = memberships.data || memberships;
+                    if (orgs.length === 0) {
+                        renderOrgList([]);
+                        showAuthScreen('org');
+                    } else if (orgs.length === 1) {
+                        await window.Clerk.setActive({ organization: orgs[0].organization.id });
+                        launchCMS();
+                    } else {
+                        renderOrgList(orgs);
+                        showAuthScreen('org');
+                    }
+                }
+            } catch (err) {
+                const msg = err.errors?.[0]?.longMessage || err.errors?.[0]?.message || err.message || 'Invalid code';
+                const errEl = document.getElementById('auth-otp-error');
+                errEl.textContent = msg;
+                errEl.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Verify code';
             }
         }
 
