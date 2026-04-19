@@ -6137,18 +6137,28 @@
                 try { await window.Clerk.handleRedirectCallback(); } catch (e) {}
             }
 
-            const session = window.Clerk.session;
-            const user = window.Clerk.user;
+            // If no active session but sessions exist in client, activate the first one
+            if (!window.Clerk.session) {
+                const clientSessions = window.Clerk.client?.sessions || [];
+                if (clientSessions.length > 0) {
+                    try {
+                        await window.Clerk.setActive({ session: clientSessions[0].id });
+                    } catch(e) {
+                        console.log('Could not activate client session:', e);
+                    }
+                }
+            }
 
             console.log('Clerk state:', {
-                hasSession: !!session,
-                sessionId: session?.id,
-                hasUser: !!user,
-                userId: user?.id,
-                activeSessions: window.Clerk.client?.activeSessions?.length
+                hasSession: !!window.Clerk.session,
+                sessionId: window.Clerk.session?.id,
+                hasUser: !!window.Clerk.user,
+                userId: window.Clerk.user?.id,
+                activeSessions: window.Clerk.client?.activeSessions?.length,
+                clientSessions: window.Clerk.client?.sessions?.length
             });
 
-            if (!user) {
+            if (!window.Clerk.user) {
                 showAuthScreen('email');
                 return;
             }
