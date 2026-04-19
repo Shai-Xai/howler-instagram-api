@@ -4,7 +4,10 @@ const { verifyToken } = require('@clerk/backend');
 const { neon } = require('@neondatabase/serverless');
 
 function getSQL() {
-    const url = process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.NEON_DATABASE_URL;
+    const url = process.env.HowlerCMS1_POSTGRES_URL
+        || process.env.HowlerCMS1_DATABASE_URL
+        || process.env.POSTGRES_URL
+        || process.env.DATABASE_URL;
     if (!url) throw new Error('No database connection string found in environment variables');
     return neon(url);
 }
