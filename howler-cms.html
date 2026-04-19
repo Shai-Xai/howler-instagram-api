@@ -4452,44 +4452,7 @@
             }
         ];
         
-        let posts = [
-            {
-                id: 1,
-                image: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=400',
-                caption: 'Summer Music Festival 2024 🎵 Get ready for the biggest event of the year!',
-                status: 'published',
-                date: '2 hours ago',
-                likes: 234,
-                comments: 45
-            },
-            {
-                id: 2,
-                image: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400',
-                caption: 'Behind the scenes at our latest concert setup 🎸',
-                status: 'published',
-                date: '1 day ago',
-                likes: 189,
-                comments: 23
-            },
-            {
-                id: 3,
-                image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400',
-                caption: 'Announcing: New Year\'s Eve Celebration! Early bird tickets available now.',
-                status: 'scheduled',
-                date: 'Dec 31, 2024',
-                likes: 0,
-                comments: 0
-            },
-            {
-                id: 4,
-                image: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=400',
-                caption: 'Draft: Electronic Night featuring top DJs...',
-                status: 'draft',
-                date: 'Draft',
-                likes: 0,
-                comments: 0
-            }
-        ];
+        let posts = [];
         
         // Sample Instagram posts (simulated)
         const sampleInstagramPosts = [
@@ -5426,22 +5389,27 @@
         }
         
         // Save Draft
-        function saveDraft() {
+        async function saveDraft() {
             const caption = document.getElementById('post-caption').value;
-            
-            posts.unshift({
-                id: Date.now(),
-                image: selectedImage || 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=400',
-                caption: caption || 'Untitled draft',
-                status: 'draft',
-                date: 'Draft',
-                likes: 0,
-                comments: 0
-            });
-            
-            renderPosts();
-            showToast('Draft saved successfully!', 'success');
-            showPage('posts');
+            try {
+                const res = await authFetch(`${INSTAGRAM_API_URL}/api/cms/posts`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        caption: caption || 'Untitled draft',
+                        imageUrl: selectedImage || '',
+                        status: 'draft'
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    posts.unshift(data.post);
+                    renderPosts();
+                    showToast('Draft saved!', 'success');
+                    showPage('posts');
+                }
+            } catch (e) {
+                showToast('Failed to save draft', 'error');
+            }
         }
         
         // Publish Post
@@ -5505,15 +5473,30 @@
                 } : null
             };
             
-            posts.unshift(newPost);
-            
-            renderPosts();
-            showToast(isScheduled ? 'Post scheduled successfully!' : 'Post published successfully!', 'success');
-            
-            // Reset form
-            resetForm();
-            
-            showPage('posts');
+            try {
+                const res = await authFetch(`${INSTAGRAM_API_URL}/api/cms/posts`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        title: newPost.title,
+                        caption: newPost.caption,
+                        imageUrl: newPost.image,
+                        status: newPost.status,
+                        scheduledDate: isScheduled ? scheduleDate : null,
+                        community: newPost.community,
+                        cta: newPost.cta
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    posts.unshift(data.post);
+                    renderPosts();
+                    showToast(isScheduled ? 'Post scheduled!' : 'Post published!', 'success');
+                    resetForm();
+                    showPage('posts');
+                }
+            } catch (e) {
+                showToast('Failed to save post', 'error');
+            }
         }
         
         // Reset Form
@@ -6397,7 +6380,7 @@
             }
         }
 
-        function launchCMS() {
+        async function launchCMS() {
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('cms-app').style.display = 'flex';
 
@@ -6416,6 +6399,13 @@
             document.getElementById('sidebar-user-avatar').textContent = userInitial;
             document.getElementById('sidebar-org-name').textContent = orgName;
             document.getElementById('sidebar-org-avatar').textContent = orgInitial;
+
+            // Load posts from API
+            try {
+                const res = await authFetch(`${INSTAGRAM_API_URL}/api/cms/posts`);
+                const data = await res.json();
+                if (data.success) { posts = data.posts; renderPosts(); }
+            } catch (e) {}
         }
 
         async function showOrgSwitcher() {

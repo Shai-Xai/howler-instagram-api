@@ -39,6 +39,22 @@ async function initTables() {
             last_run TIMESTAMPTZ
         )
     `;
+    await sql`
+        CREATE TABLE IF NOT EXISTS posts (
+            id TEXT PRIMARY KEY,
+            org_id TEXT NOT NULL,
+            title TEXT,
+            caption TEXT,
+            image_url TEXT,
+            status TEXT DEFAULT 'draft',
+            scheduled_date TEXT,
+            community TEXT,
+            cta JSONB,
+            likes INTEGER DEFAULT 0,
+            comments INTEGER DEFAULT 0,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `;
 }
 
 module.exports = async function(req, res) {
@@ -307,6 +323,33 @@ module.exports = async function(req, res) {
             });
         }
 
+        // CMS Posts - GET
+        if (path === '/api/cms/posts' && req.method === 'GET') {
+            var rows = await sql`SELECT * FROM posts WHERE org_id = ${orgId} ORDER BY created_at DESC`;
+            return res.status(200).json({ success: true, posts: rows.rows.map(dbRowToPost) });
+        }
+
+        // CMS Posts - POST (create)
+        if (path === '/api/cms/posts' && req.method === 'POST') {
+            var b = req.body || {};
+            var id = 'post_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+            await sql`
+                INSERT INTO posts (id, org_id, title, caption, image_url, status, scheduled_date, community, cta)
+                VALUES (${id}, ${orgId}, ${b.title || ''}, ${b.caption || ''}, ${b.imageUrl || ''},
+                        ${b.status || 'draft'}, ${b.scheduledDate || null}, ${b.community || null},
+                        ${b.cta ? JSON.stringify(b.cta) : null})
+            `;
+            var row = await sql`SELECT * FROM posts WHERE id = ${id}`;
+            return res.status(200).json({ success: true, post: dbRowToPost(row.rows[0]) });
+        }
+
+        // CMS Posts - DELETE
+        if (path.indexOf('/api/cms/posts/') === 0 && req.method === 'DELETE') {
+            var id = path.replace('/api/cms/posts/', '');
+            await sql`DELETE FROM posts WHERE org_id = ${orgId} AND id = ${id}`;
+            return res.status(200).json({ success: true });
+        }
+
         return res.status(404).json({ error: 'Not found', path });
 
     } catch (error) {
@@ -330,6 +373,21 @@ function dbRowToLibItem(row) {
         sourceAccount: row.source_account,
         importedAt: row.imported_at,
         used: row.used
+    };
+}
+
+function dbRowToPost(row) {
+    return {
+        id: row.id,
+        title: row.title,
+        caption: row.caption,
+        image: row.image_url,
+        status: row.status,
+        date: row.scheduled_date || new Date(row.created_at).toLocaleDateString(),
+        community: row.community,
+        cta: row.cta,
+        likes: row.likes,
+        comments: row.comments
     };
 }
 
