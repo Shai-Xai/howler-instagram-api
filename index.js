@@ -354,7 +354,7 @@ module.exports = async function(req, res) {
 
     } catch (error) {
         console.error('API Error:', error);
-        return res.status(500).json({ success: false, error: error.message });
+        return res.status(500).json({ success: false, error: error.message, detail: error.detail || error.code || '' });
     }
 };
 

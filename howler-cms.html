@@ -5489,9 +5489,13 @@
                     showToast(isScheduled ? 'Post scheduled!' : 'Post published!', 'success');
                     resetForm();
                     showPage('posts');
+                } else {
+                    console.error('Backend error:', data.error);
+                    showToast('Error: ' + (data.error || 'Unknown'), 'error');
                 }
             } catch (e) {
-                showToast('Failed to save post', 'error');
+                console.error('Publish error:', e);
+                showToast('Failed to save post: ' + e.message, 'error');
             }
         }
         
