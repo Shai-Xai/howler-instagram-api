@@ -6140,7 +6140,15 @@
             const session = window.Clerk.session;
             const user = window.Clerk.user;
 
-            if (!session || !user) {
+            console.log('Clerk state:', {
+                hasSession: !!session,
+                sessionId: session?.id,
+                hasUser: !!user,
+                userId: user?.id,
+                activeSessions: window.Clerk.client?.activeSessions?.length
+            });
+
+            if (!user) {
                 showAuthScreen('email');
                 return;
             }
@@ -6149,8 +6157,15 @@
         }
 
         async function setActiveOrg(orgId) {
-            const session = window.Clerk.session;
-            await window.Clerk.setActive({ session: session?.id || null, organization: orgId });
+            const sessionId = window.Clerk.session?.id
+                || window.Clerk.client?.activeSessions?.[0]?.id
+                || window.Clerk.client?.sessions?.[0]?.id;
+            console.log('setActiveOrg sessionId:', sessionId, 'orgId:', orgId);
+            if (sessionId) {
+                await window.Clerk.setActive({ session: sessionId, organization: orgId });
+            } else {
+                await window.Clerk.setActive({ organization: orgId });
+            }
         }
 
         async function handleSignedInUser() {
