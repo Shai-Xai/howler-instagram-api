@@ -6229,11 +6229,18 @@
                     emailAddressId: factor.emailAddressId
                 });
             } catch (err) {
-                const code = err.errors?.[0]?.code;
-                if (code === 'identifier_already_signed_in' || window.Clerk.session) {
+                const clerkErr = err.errors?.[0];
+                const code = clerkErr?.code;
+                if (code === 'identifier_already_signed_in') {
                     btn.disabled = false;
                     btn.textContent = 'Continue with email';
-                    await handleSignedInUser();
+                    const existingSessionId = clerkErr?.meta?.sessionId;
+                    if (existingSessionId) {
+                        await window.Clerk.setActive({ session: existingSessionId });
+                        await handleSignedInUser();
+                    } else {
+                        window.location.reload();
+                    }
                     return;
                 } else if (code === 'form_identifier_not_found' || code === 'form_password_incorrect') {
                     // Account doesn't exist — sign up instead
