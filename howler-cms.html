@@ -5396,7 +5396,7 @@
                     method: 'POST',
                     body: JSON.stringify({
                         caption: caption || 'Untitled draft',
-                        imageUrl: selectedImage || '',
+                        imageUrl: selectedImage && !selectedImage.startsWith('data:') ? selectedImage : '',
                         status: 'draft'
                     })
                 });
@@ -5475,7 +5475,7 @@
                     body: JSON.stringify({
                         title: newPost.title,
                         caption: newPost.caption,
-                        imageUrl: newPost.image,
+                        imageUrl: newPost.image && !newPost.image.startsWith('data:') ? newPost.image : '',
                         status: newPost.status,
                         scheduledDate: isScheduled ? scheduleDate : null,
                         community: newPost.community,
