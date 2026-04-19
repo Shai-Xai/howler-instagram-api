@@ -5426,12 +5426,6 @@
             const ctaEventLink = document.getElementById('cta-event-link').value;
             const eventDestination = document.getElementById('event-destination').value;
             
-            // Validate community selection
-            if (!selectedCommunity) {
-                showToast('Please select a community to post to', 'warning');
-                return;
-            }
-            
             if (!selectedImage && uploadedMedia.length === 0) {
                 showToast('Please upload at least one image or video', 'error');
                 return;
