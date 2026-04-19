@@ -5414,8 +5414,10 @@
         
         // Publish Post
         async function publishPost() {
+            console.log('publishPost called', { selectedImage, uploadedMedia: uploadedMedia.length });
             const title = document.getElementById('post-title').value;
             const caption = document.getElementById('post-caption').value;
+            console.log('caption:', caption, 'title:', title);
             const isScheduled = document.getElementById('schedule-toggle').classList.contains('active');
             const scheduleDate = document.getElementById('schedule-datetime').value;
             
