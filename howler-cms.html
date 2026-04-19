@@ -6128,18 +6128,19 @@
         }
 
         async function initClerk() {
-            // Wait for Clerk script to be available
             while (!window.Clerk) {
                 await new Promise(r => setTimeout(r, 50));
             }
             await window.Clerk.load();
 
-            // Handle magic link redirect callback
             if (window.location.search.includes('__clerk_status') || window.location.hash.includes('__clerk')) {
                 try { await window.Clerk.handleRedirectCallback(); } catch (e) {}
             }
 
-            if (!window.Clerk.user) {
+            const session = window.Clerk.session;
+            const user = window.Clerk.user;
+
+            if (!session || !user) {
                 showAuthScreen('email');
                 return;
             }
@@ -6147,15 +6148,9 @@
             await handleSignedInUser();
         }
 
-        function getSessionId() {
-            return window.Clerk.session?.id
-                || window.Clerk.client?.activeSessions?.[0]?.id
-                || null;
-        }
-
         async function setActiveOrg(orgId) {
-            const sessionId = getSessionId();
-            await window.Clerk.setActive({ session: sessionId, organization: orgId });
+            const session = window.Clerk.session;
+            await window.Clerk.setActive({ session: session?.id || null, organization: orgId });
         }
 
         async function handleSignedInUser() {
@@ -6220,7 +6215,9 @@
                 });
             } catch (err) {
                 const code = err.errors?.[0]?.code;
-                if (code === 'identifier_already_signed_in' || (window.Clerk.user)) {
+                if (code === 'identifier_already_signed_in' || window.Clerk.session) {
+                    btn.disabled = false;
+                    btn.textContent = 'Continue with email';
                     await handleSignedInUser();
                     return;
                 } else if (code === 'form_identifier_not_found' || code === 'form_password_incorrect') {
