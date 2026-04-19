@@ -1,7 +1,15 @@
 // Howler Instagram API v7 - Clerk auth + Neon Postgres
 
 const { verifyToken } = require('@clerk/backend');
-const { sql } = require('@vercel/postgres');
+const { neon } = require('@neondatabase/serverless');
+
+function getSQL() {
+    const url = process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.NEON_DATABASE_URL;
+    if (!url) throw new Error('No database connection string found in environment variables');
+    return neon(url);
+}
+
+const sql = (...args) => getSQL()(...args);
 
 async function initTables() {
     await sql`
