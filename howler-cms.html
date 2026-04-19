@@ -6147,6 +6147,17 @@
             await handleSignedInUser();
         }
 
+        function getSessionId() {
+            return window.Clerk.session?.id
+                || window.Clerk.client?.activeSessions?.[0]?.id
+                || null;
+        }
+
+        async function setActiveOrg(orgId) {
+            const sessionId = getSessionId();
+            await window.Clerk.setActive({ session: sessionId, organization: orgId });
+        }
+
         async function handleSignedInUser() {
             if (!window.Clerk.organization) {
                 let orgs = [];
@@ -6156,7 +6167,7 @@
                 } catch(e) {}
 
                 if (orgs.length === 1) {
-                    await window.Clerk.setActive({ organization: orgs[0].organization.id });
+                    await setActiveOrg(orgs[0].organization.id);
                     launchCMS();
                 } else {
                     renderOrgList(orgs);
@@ -6283,19 +6294,19 @@
 
                 await window.Clerk.setActive({ session: sessionId });
 
-                // Reload user after setActive
-                const user = window.Clerk.user;
                 let orgs = [];
                 try {
-                    const memberships = await user.getOrganizationMemberships();
+                    const memberships = await window.Clerk.user.getOrganizationMemberships();
                     orgs = memberships.data || memberships || [];
                 } catch (e) { orgs = []; }
 
                 if (orgs.length === 0) {
                     renderOrgList([]);
+                    document.getElementById('create-org-form').style.display = 'none';
+                    document.getElementById('show-create-org-btn').style.display = 'block';
                     showAuthScreen('org');
                 } else if (orgs.length === 1) {
-                    await window.Clerk.setActive({ organization: orgs[0].organization.id });
+                    await window.Clerk.setActive({ session: sessionId, organization: orgs[0].organization.id });
                     launchCMS();
                 } else {
                     renderOrgList(orgs);
@@ -6331,7 +6342,7 @@
         }
 
         async function selectOrg(orgId) {
-            await window.Clerk.setActive({ organization: orgId });
+            await setActiveOrg(orgId);
             launchCMS();
         }
 
@@ -6345,7 +6356,7 @@
 
             try {
                 const org = await window.Clerk.createOrganization({ name });
-                await window.Clerk.setActive({ organization: org.id });
+                await setActiveOrg(org.id);
                 launchCMS();
             } catch (err) {
                 const msg = err.errors?.[0]?.longMessage || err.errors?.[0]?.message || err.message || 'Failed to create organisation';
