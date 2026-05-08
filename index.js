@@ -499,15 +499,18 @@ async function fetchInstagramProfile(username) {
         }
 
         var stories = [];
+        var _storiesDebug = null;
         if (storiesRes.status === 'fulfilled' && storiesRes.value.ok) {
             var d = await storiesRes.value.json();
-            console.log('STORIES:', JSON.stringify(d).slice(0, 400));
+            _storiesDebug = d;
             var raw = Array.isArray(d) ? d : (d.data || d.items || d.reel?.items || []);
             if (d.error) raw = [];
             stories = raw.slice(0, 12).map(function(s) { return mapMediaItem(s, 'story'); });
+        } else {
+            _storiesDebug = { status: storiesRes.status, reason: storiesRes.reason?.message };
         }
 
-        return { success: true, profile: profile, posts: posts, reels: reels, stories: stories };
+        return { success: true, profile: profile, posts: posts, reels: reels, stories: stories, _storiesDebug: _storiesDebug };
     } catch (e) {
         return { success: false, error: e.message };
     }
