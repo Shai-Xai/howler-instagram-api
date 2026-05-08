@@ -498,7 +498,8 @@ async function fetchInstagramProfile(username) {
         var stories = [];
         if (storiesRes.status === 'fulfilled' && storiesRes.value.ok) {
             var d = await storiesRes.value.json();
-            var raw = Array.isArray(d) ? d : (d.data || d.items || []);
+            console.log('STORIES RAW KEYS:', Object.keys(d), JSON.stringify(d).slice(0, 300));
+            var raw = Array.isArray(d) ? d : (d.data || d.items || d.reels || d.reel?.items || []);
             stories = raw.slice(0, 12).map(function(s) { return mapMediaItem(s, 'story'); });
         }
 
