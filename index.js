@@ -201,7 +201,7 @@ module.exports = async function(req, res) {
                 VALUES (${orgId}, ${profile.username}, ${profile.fullName || ''}, ${profile.profilePic || ''}, ${profile.followers || 0})
             `;
 
-            var newCount = await addPostsToDb(orgId, igResult.posts, profile.username);
+            var newCount = await addPostsToDb(orgId, igResult.posts, profile.username, igResult.reels, igResult.stories);
             var accs = await sql`SELECT * FROM accounts WHERE org_id = ${orgId} ORDER BY added_at`;
             var cfg = await sql`SELECT * FROM scraper_config WHERE org_id = ${orgId}`;
 
@@ -230,7 +230,7 @@ module.exports = async function(req, res) {
                 try {
                     var igResult = await fetchInstagramProfile(acc.username);
                     if (igResult.success && igResult.profile && !igResult.profile.isPrivate) {
-                        var newCount = await addPostsToDb(orgId, igResult.posts, acc.username);
+                        var newCount = await addPostsToDb(orgId, igResult.posts, acc.username, igResult.reels, igResult.stories);
                         totalNewPosts += newCount;
                         results.push({ account: acc.username, success: true, newPosts: newCount });
                     } else {
@@ -388,13 +388,14 @@ function dbRowToAccount(row) {
     };
 }
 
-// Add posts to Postgres library
-async function addPostsToDb(orgId, posts, username) {
-    if (!Array.isArray(posts)) return 0;
+// Add posts/reels/stories to Postgres library
+async function addPostsToDb(orgId, posts, username, reels, stories) {
+    var all = [].concat(posts || [], reels || [], stories || []);
     var newCount = 0;
 
-    for (var i = 0; i < posts.length; i++) {
-        var p = posts[i];
+    for (var i = 0; i < all.length; i++) {
+        var p = all[i];
+        if (!p.id) continue;
         var libraryId = 'lib_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         try {
             var result = await sql`
@@ -457,27 +458,51 @@ async function fetchInstagramProfile(username) {
             isVerified: !!u.is_verified
         };
 
-        // Fetch posts
-        var postsRes = await fetch(RAPID_BASE + '/get_ig_user_posts.php', {
-            method: 'POST',
-            headers: { ...rapidHeaders(), 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formBody({ username_or_url: igUrl, amount: 12 })
-        });
+        // Fetch posts, reels, stories in parallel
+        var [postsRes, reelsRes, storiesRes] = await Promise.allSettled([
+            fetch(RAPID_BASE + '/get_ig_user_posts.php', {
+                method: 'POST',
+                headers: { ...rapidHeaders(), 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formBody({ username_or_url: igUrl, amount: 12 })
+            }),
+            fetch(RAPID_BASE + '/get_ig_user_reels.php', {
+                method: 'POST',
+                headers: { ...rapidHeaders(), 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formBody({ username_or_url: igUrl, amount: 12 })
+            }),
+            fetch(RAPID_BASE + '/get_ig_user_stories.php', {
+                method: 'POST',
+                headers: { ...rapidHeaders(), 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formBody({ username_or_url: igUrl, amount: 12 })
+            })
+        ]);
 
         var posts = [];
-        if (postsRes.ok) {
-            var postsData = await postsRes.json();
-            var raw = postsData.posts || postsData.data || postsData.items || [];
-            posts = raw.map(function(p) { return mapMediaItem(p); });
+        if (postsRes.status === 'fulfilled' && postsRes.value.ok) {
+            var d = await postsRes.value.json();
+            posts = (d.posts || d.data || d.items || []).map(function(p) { return mapMediaItem(p, 'post'); });
         }
 
-        return { success: true, profile: profile, posts: posts };
+        var reels = [];
+        if (reelsRes.status === 'fulfilled' && reelsRes.value.ok) {
+            var d = await reelsRes.value.json();
+            reels = (d.reels || d.data || d.items || []).map(function(r) { return mapMediaItem(r?.node?.media || r?.node || r, 'reel'); });
+        }
+
+        var stories = [];
+        if (storiesRes.status === 'fulfilled' && storiesRes.value.ok) {
+            var d = await storiesRes.value.json();
+            var raw = Array.isArray(d) ? d : (d.data || d.items || []);
+            stories = raw.slice(0, 12).map(function(s) { return mapMediaItem(s, 'story'); });
+        }
+
+        return { success: true, profile: profile, posts: posts, reels: reels, stories: stories };
     } catch (e) {
         return { success: false, error: e.message };
     }
 }
 
-function mapMediaItem(n) {
+function mapMediaItem(n, mediaType) {
     var node = n.node || n;
     var thumb = node.display_url || node.thumbnail_src || node.image_versions2?.candidates?.[0]?.url || node.thumbnail_url || '';
     var isVideo = !!(node.is_video || node.media_type === 2 || node.video_url || node.video_versions?.length);
@@ -488,7 +513,8 @@ function mapMediaItem(n) {
         caption: node.edge_media_to_caption?.edges?.[0]?.node?.text || node.caption?.text || '',
         likes: node.edge_liked_by?.count || node.like_count || 0,
         comments: node.edge_media_to_comment?.count || node.comment_count || 0,
-        isVideo: isVideo
+        isVideo: isVideo,
+        mediaType: mediaType || (isVideo ? 'video' : 'image')
     };
 }
 
