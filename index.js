@@ -193,21 +193,21 @@ module.exports = async function(req, res) {
             var igResult = await fetchInstagramProfile(username);
             if (!igResult.success) return res.status(400).json({ success: false, error: igResult.error });
 
-            var user = igResult.user;
-            if (user.is_private) return res.status(400).json({ success: false, error: 'Private account' });
+            var profile = igResult.profile;
+            if (profile.isPrivate) return res.status(400).json({ success: false, error: 'Private account' });
 
             await sql`
                 INSERT INTO accounts (org_id, username, full_name, profile_pic, followers)
-                VALUES (${orgId}, ${user.username}, ${user.full_name || ''}, ${user.profile_pic_url_hd || user.profile_pic_url || ''}, ${(user.edge_followed_by && user.edge_followed_by.count) || 0})
+                VALUES (${orgId}, ${profile.username}, ${profile.fullName || ''}, ${profile.profilePic || ''}, ${profile.followers || 0})
             `;
 
-            var newCount = await addPostsToDb(orgId, user, user.username);
+            var newCount = await addPostsToDb(orgId, igResult.posts, profile.username);
             var accs = await sql`SELECT * FROM accounts WHERE org_id = ${orgId} ORDER BY added_at`;
             var cfg = await sql`SELECT * FROM scraper_config WHERE org_id = ${orgId}`;
 
             return res.status(200).json({
                 success: true,
-                message: 'Added @' + user.username + ' (' + newCount + ' posts)',
+                message: 'Added @' + profile.username + ' (' + newCount + ' posts)',
                 config: {
                     accounts: accs.rows.map(dbRowToAccount),
                     enabled: cfg.rows[0]?.enabled || false,
@@ -229,8 +229,8 @@ module.exports = async function(req, res) {
                 var acc = accs.rows[a];
                 try {
                     var igResult = await fetchInstagramProfile(acc.username);
-                    if (igResult.success && igResult.user && !igResult.user.is_private) {
-                        var newCount = await addPostsToDb(orgId, igResult.user, acc.username);
+                    if (igResult.success && igResult.profile && !igResult.profile.isPrivate) {
+                        var newCount = await addPostsToDb(orgId, igResult.posts, acc.username);
                         totalNewPosts += newCount;
                         results.push({ account: acc.username, success: true, newPosts: newCount });
                     } else {
@@ -257,34 +257,10 @@ module.exports = async function(req, res) {
             var igResult = await fetchInstagramProfile(username);
             if (!igResult.success) return res.status(400).json({ success: false, error: igResult.error });
 
-            var user = igResult.user;
-            var postsList = (user.edge_owner_to_timeline_media && user.edge_owner_to_timeline_media.edges) || [];
-
             return res.status(200).json({
                 success: true,
-                profile: {
-                    username: user.username,
-                    fullName: user.full_name || '',
-                    bio: user.biography || '',
-                    profilePic: user.profile_pic_url_hd || user.profile_pic_url || '',
-                    followers: (user.edge_followed_by && user.edge_followed_by.count) || 0,
-                    following: (user.edge_follow && user.edge_follow.count) || 0,
-                    postsCount: (user.edge_owner_to_timeline_media && user.edge_owner_to_timeline_media.count) || 0,
-                    isPrivate: user.is_private,
-                    isVerified: user.is_verified
-                },
-                posts: postsList.map(function(e) {
-                    var node = e.node;
-                    return {
-                        id: node.id,
-                        displayUrl: node.display_url,
-                        thumbnailUrl: node.thumbnail_src || node.display_url,
-                        caption: getCaption(node),
-                        likes: getLikes(node),
-                        comments: (node.edge_media_to_comment && node.edge_media_to_comment.count) || 0,
-                        isVideo: node.is_video
-                    };
-                })
+                profile: igResult.profile,
+                posts: igResult.posts
             });
         }
 
@@ -413,22 +389,22 @@ function dbRowToAccount(row) {
 }
 
 // Add posts to Postgres library
-async function addPostsToDb(orgId, user, username) {
-    var posts = (user.edge_owner_to_timeline_media && user.edge_owner_to_timeline_media.edges) || [];
+async function addPostsToDb(orgId, posts, username) {
+    if (!Array.isArray(posts)) return 0;
     var newCount = 0;
 
     for (var i = 0; i < posts.length; i++) {
-        var node = posts[i].node;
+        var p = posts[i];
         var libraryId = 'lib_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         try {
             var result = await sql`
                 INSERT INTO library (library_id, id, org_id, display_url, thumbnail_url, caption, likes, comments, is_video, source_account)
                 VALUES (
-                    ${libraryId}, ${node.id}, ${orgId},
-                    ${node.display_url}, ${node.thumbnail_src || node.display_url},
-                    ${getCaption(node)}, ${getLikes(node)},
-                    ${(node.edge_media_to_comment && node.edge_media_to_comment.count) || 0},
-                    ${node.is_video || false}, ${username}
+                    ${libraryId}, ${p.id}, ${orgId},
+                    ${p.displayUrl || ''}, ${p.thumbnailUrl || p.displayUrl || ''},
+                    ${p.caption || ''}, ${p.likes || 0},
+                    ${p.comments || 0},
+                    ${p.isVideo || false}, ${username}
                 )
                 ON CONFLICT DO NOTHING
             `;
@@ -438,41 +414,82 @@ async function addPostsToDb(orgId, user, username) {
     return newCount;
 }
 
+const RAPID_HOST = 'instagram-scraper-stable-api.p.rapidapi.com';
+const RAPID_BASE = 'https://' + RAPID_HOST;
+
+function rapidHeaders() {
+    return { 'x-rapidapi-key': process.env.RAPIDAPI_KEY, 'x-rapidapi-host': RAPID_HOST };
+}
+
+function formBody(params) {
+    return Object.entries(params).map(function(e) {
+        return encodeURIComponent(e[0]) + '=' + encodeURIComponent(e[1]);
+    }).join('&');
+}
+
 async function fetchInstagramProfile(username) {
-    var methods = [fetchViaWebProfileInfo, fetchViaGraphQL];
-    for (var i = 0; i < methods.length; i++) {
-        try {
-            var result = await methods[i](username);
-            if (result.success) return result;
-        } catch (e) {}
+    var apiKey = process.env.RAPIDAPI_KEY;
+    if (!apiKey) return { success: false, error: 'RAPIDAPI_KEY not configured' };
+
+    var igUrl = username.startsWith('http') ? username : 'https://www.instagram.com/' + username + '/';
+
+    try {
+        var profileRes = await fetch(
+            RAPID_BASE + '/ig_get_fb_profile_hover.php?username_or_url=' + encodeURIComponent(igUrl),
+            { headers: rapidHeaders() }
+        );
+
+        if (!profileRes.ok) return { success: false, error: 'Could not fetch Instagram profile (status ' + profileRes.status + ')' };
+
+        var profileData = await profileRes.json();
+        var u = profileData.user_data || profileData.data?.user || profileData.user || null;
+        if (!u) return { success: false, error: 'User not found' };
+
+        var profile = {
+            username: u.username || username,
+            fullName: u.full_name || '',
+            bio: u.biography || u.bio || '',
+            profilePic: u.profile_pic_url_hd || u.profile_pic_url || '',
+            followers: u.edge_followed_by?.count || u.follower_count || 0,
+            following: u.edge_follow?.count || u.following_count || 0,
+            postsCount: u.edge_owner_to_timeline_media?.count || u.media_count || 0,
+            isPrivate: !!u.is_private,
+            isVerified: !!u.is_verified
+        };
+
+        // Fetch posts
+        var postsRes = await fetch(RAPID_BASE + '/get_ig_user_posts.php', {
+            method: 'POST',
+            headers: { ...rapidHeaders(), 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formBody({ username_or_url: igUrl, amount: 12 })
+        });
+
+        var posts = [];
+        if (postsRes.ok) {
+            var postsData = await postsRes.json();
+            var raw = postsData.posts || postsData.data || postsData.items || [];
+            posts = raw.map(function(p) { return mapMediaItem(p); });
+        }
+
+        return { success: true, profile: profile, posts: posts };
+    } catch (e) {
+        return { success: false, error: e.message };
     }
-    return { success: false, error: 'Could not fetch Instagram data.' };
 }
 
-async function fetchViaWebProfileInfo(username) {
-    var response = await fetch(
-        'https://i.instagram.com/api/v1/users/web_profile_info/?username=' + encodeURIComponent(username),
-        { headers: { 'User-Agent': 'Instagram 275.0.0.27.98 Android (33/13; 420dpi; 1080x2400; samsung; SM-G991B; o1s; exynos2100; en_US; 458229237)', 'X-IG-App-ID': '936619743392459', 'X-IG-WWW-Claim': '0', 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } }
-    );
-    var text = await response.text();
-    if (!text.startsWith('{')) return { success: false, error: 'Non-JSON response' };
-    var data = JSON.parse(text);
-    var user = data && data.data && data.data.user;
-    if (!user) return { success: false, error: 'User not found' };
-    return { success: true, user };
-}
-
-async function fetchViaGraphQL(username) {
-    var response = await fetch(
-        'https://www.instagram.com/api/v1/users/web_profile_info/?username=' + encodeURIComponent(username),
-        { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'X-IG-App-ID': '936619743392459', 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } }
-    );
-    var text = await response.text();
-    if (!text.startsWith('{')) return { success: false, error: 'Non-JSON response' };
-    var data = JSON.parse(text);
-    var user = data && data.data && data.data.user;
-    if (!user) return { success: false, error: 'User not found' };
-    return { success: true, user };
+function mapMediaItem(n) {
+    var node = n.node || n;
+    var thumb = node.display_url || node.thumbnail_src || node.image_versions2?.candidates?.[0]?.url || node.thumbnail_url || '';
+    var isVideo = !!(node.is_video || node.media_type === 2 || node.video_url || node.video_versions?.length);
+    return {
+        id: node.id || node.pk || '',
+        displayUrl: thumb,
+        thumbnailUrl: thumb,
+        caption: node.edge_media_to_caption?.edges?.[0]?.node?.text || node.caption?.text || '',
+        likes: node.edge_liked_by?.count || node.like_count || 0,
+        comments: node.edge_media_to_comment?.count || node.comment_count || 0,
+        isVideo: isVideo
+    };
 }
 
 function getCaption(node) {
