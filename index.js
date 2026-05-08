@@ -479,8 +479,11 @@ async function fetchInstagramProfile(username) {
                 headers: { ...rapidHeaders(), 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: formBody({ username_or_url: igUrl, amount: 12 })
             }),
-            fetch(RAPID_BASE + '/get_ig_user_stories.php?username_or_url=' + encodeURIComponent(igUrl),
-                { headers: rapidHeaders() })
+            fetch(RAPID_BASE + '/get_ig_user_stories.php', {
+                method: 'POST',
+                headers: { ...rapidHeaders(), 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formBody({ username_or_url: username })
+            })
         ]);
 
         var posts = [];
