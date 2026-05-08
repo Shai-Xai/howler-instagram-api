@@ -5118,9 +5118,10 @@
                         return;
                     }
                     
-                    fetchedInstagramPosts = data.posts;
-                    renderInstagramGrid(grid, 'instagram-actions', 'selected-count', data.posts, data.profile);
-                    showToast(`Found ${data.posts.length} posts from @${data.profile.username}`, 'success');
+                    const allMedia = [].concat(data.posts || [], data.reels || [], data.stories || []);
+                    fetchedInstagramPosts = allMedia;
+                    renderInstagramGrid(grid, 'instagram-actions', 'selected-count', allMedia, data.profile);
+                    showToast(`Found ${allMedia.length} items (${(data.posts||[]).length} posts, ${(data.reels||[]).length} reels, ${(data.stories||[]).length} stories) from @${data.profile.username}`, 'success');
                 } else {
                     showToast(data.error || 'Failed to fetch Instagram data', 'error');
                     if (data.suggestion) {
@@ -5160,14 +5161,15 @@
                         return;
                     }
                     
-                    if (data.posts.length === 0) {
-                        showToast('No posts found for this profile', 'warning');
+                    const allMedia = [].concat(data.posts || [], data.reels || [], data.stories || []);
+                    if (allMedia.length === 0) {
+                        showToast('No content found for this profile', 'warning');
                         return;
                     }
-                    
-                    fetchedInstagramPosts = data.posts;
-                    renderInstagramGrid(grid, 'instagram-actions-main', 'selected-count-main', data.posts, data.profile);
-                    showToast(`Found ${data.posts.length} posts from @${data.profile.username}`, 'success');
+
+                    fetchedInstagramPosts = allMedia;
+                    renderInstagramGrid(grid, 'instagram-actions-main', 'selected-count-main', allMedia, data.profile);
+                    showToast(`Found ${allMedia.length} items (${(data.posts||[]).length} posts, ${(data.reels||[]).length} reels, ${(data.stories||[]).length} stories) from @${data.profile.username}`, 'success');
                 } else {
                     showToast(data.error || 'Failed to fetch Instagram data', 'error');
                 }
@@ -5217,6 +5219,7 @@
                 
                 item.innerHTML = `
                     <img src="${imageUrl}" alt="Instagram post" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23262626%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2255%22 text-anchor=%22middle%22 fill=%22%23666%22 font-size=%2212%22>Image</text></svg>'">
+                    <span class="library-item-type library-item-type--${post.mediaType || 'post'}">${post.mediaType === 'reel' ? '▶ Reel' : post.mediaType === 'story' ? '◎ Story' : '◼ Post'}</span>
                     ${post.isVideo ? '<div class="video-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>' : ''}
                     ${post.carouselMedia ? '<div class="carousel-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="18" height="18" rx="2"/></svg></div>' : ''}
                     <div class="select-overlay">
