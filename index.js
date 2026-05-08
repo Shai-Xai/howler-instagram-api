@@ -452,6 +452,7 @@ async function fetchInstagramProfile(username) {
         var u = profileData.user_data || profileData.data?.user || profileData.user || null;
         if (!u) return { success: false, error: 'User not found' };
 
+        var userId = u.id || u.pk || '';
         var profile = {
             username: u.username || username,
             fullName: u.full_name || '',
@@ -463,6 +464,8 @@ async function fetchInstagramProfile(username) {
             isPrivate: !!u.is_private,
             isVerified: !!u.is_verified
         };
+
+        console.log('USER ID:', userId, 'USERNAME:', u.username);
 
         // Fetch posts, reels, stories in parallel
         var [postsRes, reelsRes, storiesRes] = await Promise.allSettled([
@@ -479,7 +482,7 @@ async function fetchInstagramProfile(username) {
             fetch(RAPID_BASE + '/get_ig_user_stories.php', {
                 method: 'POST',
                 headers: { ...rapidHeaders(), 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: formBody({ username_or_url: username, amount: 12 })
+                body: formBody({ user_id: userId, username_or_url: igUrl, amount: 12 })
             })
         ]);
 
