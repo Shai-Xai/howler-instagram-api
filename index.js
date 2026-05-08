@@ -114,10 +114,10 @@ module.exports = async function(req, res) {
             return res.status(200).json({
                 success: true,
                 stats: {
-                    totalItems: parseInt(totals.rows[0].total),
-                    usedItems: parseInt(totals.rows[0].used),
-                    accounts: accs.rows.map(r => ({ username: r.source_account, count: parseInt(r.count) })),
-                    lastImport: cfg.rows[0]?.last_run || null
+                    totalItems: parseInt(totals[0].total),
+                    usedItems: parseInt(totals[0].used),
+                    accounts: accs.map(r => ({ username: r.source_account, count: parseInt(r.count) })),
+                    lastImport: cfg[0]?.last_run || null
                 }
             });
         }
@@ -146,10 +146,10 @@ module.exports = async function(req, res) {
                 countRow = await sql`SELECT COUNT(*) as total FROM library WHERE org_id = ${orgId}`;
             }
 
-            var total = parseInt(countRow.rows[0].total);
+            var total = parseInt(countRow[0].total);
             return res.status(200).json({
                 success: true,
-                data: rows.rows.map(dbRowToLibItem),
+                data: rows.map(dbRowToLibItem),
                 pagination: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 }
             });
         }
@@ -171,10 +171,10 @@ module.exports = async function(req, res) {
             return res.status(200).json({
                 success: true,
                 config: {
-                    accounts: accs.rows.map(dbRowToAccount),
-                    enabled: cfg.rows[0]?.enabled || false,
-                    intervalHours: cfg.rows[0]?.interval_hours || 1,
-                    lastRun: cfg.rows[0]?.last_run || null
+                    accounts: accs.map(dbRowToAccount),
+                    enabled: cfg[0]?.enabled || false,
+                    intervalHours: cfg[0]?.interval_hours || 1,
+                    lastRun: cfg[0]?.last_run || null
                 }
             });
         }
@@ -182,7 +182,7 @@ module.exports = async function(req, res) {
         // Scraper accounts - GET
         if (path === '/api/scraper/accounts' && req.method === 'GET') {
             var accs = await sql`SELECT * FROM accounts WHERE org_id = ${orgId} ORDER BY added_at`;
-            return res.status(200).json({ success: true, accounts: accs.rows.map(dbRowToAccount) });
+            return res.status(200).json({ success: true, accounts: accs.map(dbRowToAccount) });
         }
 
         // Scraper accounts - POST
@@ -191,7 +191,7 @@ module.exports = async function(req, res) {
             if (!username) return res.status(400).json({ success: false, error: 'Username required' });
 
             var existing = await sql`SELECT 1 FROM accounts WHERE org_id = ${orgId} AND username = ${username}`;
-            if (existing.rows.length > 0) return res.status(400).json({ success: false, error: 'Already added' });
+            if (existing.length > 0) return res.status(400).json({ success: false, error: 'Already added' });
 
             var igResult = await fetchInstagramProfile(username);
             if (!igResult.success) return res.status(400).json({ success: false, error: igResult.error });
@@ -212,10 +212,10 @@ module.exports = async function(req, res) {
                 success: true,
                 message: 'Added @' + profile.username + ' (' + newCount + ' posts)',
                 config: {
-                    accounts: accs.rows.map(dbRowToAccount),
-                    enabled: cfg.rows[0]?.enabled || false,
-                    intervalHours: cfg.rows[0]?.interval_hours || 1,
-                    lastRun: cfg.rows[0]?.last_run || null
+                    accounts: accs.map(dbRowToAccount),
+                    enabled: cfg[0]?.enabled || false,
+                    intervalHours: cfg[0]?.interval_hours || 1,
+                    lastRun: cfg[0]?.last_run || null
                 }
             });
         }
@@ -223,13 +223,13 @@ module.exports = async function(req, res) {
         // Scraper run
         if (path === '/api/scraper/run' && req.method === 'POST') {
             var accs = await sql`SELECT * FROM accounts WHERE org_id = ${orgId}`;
-            if (accs.rows.length === 0) return res.status(200).json({ success: false, message: 'No accounts configured' });
+            if (accs.length === 0) return res.status(200).json({ success: false, message: 'No accounts configured' });
 
             var totalNewPosts = 0;
             var results = [];
 
-            for (var a = 0; a < accs.rows.length; a++) {
-                var acc = accs.rows[a];
+            for (var a = 0; a < accs.length; a++) {
+                var acc = accs[a];
                 try {
                     var igResult = await fetchInstagramProfile(acc.username);
                     if (igResult.success && igResult.profile && !igResult.profile.isPrivate) {
@@ -251,7 +251,7 @@ module.exports = async function(req, res) {
             `;
 
             var total = await sql`SELECT COUNT(*) as total FROM library WHERE org_id = ${orgId}`;
-            return res.status(200).json({ success: true, results, totalNewPosts, librarySize: parseInt(total.rows[0].total) });
+            return res.status(200).json({ success: true, results, totalNewPosts, librarySize: parseInt(total[0].total) });
         }
 
         // Instagram fetch
@@ -307,10 +307,10 @@ module.exports = async function(req, res) {
             return res.status(200).json({
                 success: true,
                 config: {
-                    accounts: accs.rows.map(dbRowToAccount),
-                    enabled: cfg.rows[0]?.enabled || false,
-                    intervalHours: cfg.rows[0]?.interval_hours || 1,
-                    lastRun: cfg.rows[0]?.last_run || null
+                    accounts: accs.map(dbRowToAccount),
+                    enabled: cfg[0]?.enabled || false,
+                    intervalHours: cfg[0]?.interval_hours || 1,
+                    lastRun: cfg[0]?.last_run || null
                 }
             });
         }
@@ -318,7 +318,7 @@ module.exports = async function(req, res) {
         // CMS Posts - GET
         if (path === '/api/cms/posts' && req.method === 'GET') {
             var rows = await sql`SELECT * FROM posts WHERE org_id = ${orgId} ORDER BY created_at DESC`;
-            return res.status(200).json({ success: true, posts: rows.rows.map(dbRowToPost) });
+            return res.status(200).json({ success: true, posts: rows.map(dbRowToPost) });
         }
 
         // CMS Posts - POST (create)
@@ -332,7 +332,7 @@ module.exports = async function(req, res) {
                         ${b.cta ? JSON.stringify(b.cta) : null})
             `;
             var row = await sql`SELECT * FROM posts WHERE id = ${id}`;
-            return res.status(200).json({ success: true, post: dbRowToPost(row.rows[0]) });
+            return res.status(200).json({ success: true, post: dbRowToPost(row[0]) });
         }
 
         // CMS Posts - DELETE
