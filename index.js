@@ -26,6 +26,7 @@ async function initTables() {
             likes INTEGER DEFAULT 0,
             comments INTEGER DEFAULT 0,
             is_video BOOLEAN DEFAULT false,
+            media_type TEXT DEFAULT 'post',
             source_account TEXT,
             imported_at TIMESTAMPTZ DEFAULT NOW(),
             used BOOLEAN DEFAULT false
@@ -66,6 +67,8 @@ async function initTables() {
             created_at TIMESTAMPTZ DEFAULT NOW()
         )
     `;
+    // Add media_type column if missing (migration for existing tables)
+    await sql`ALTER TABLE library ADD COLUMN IF NOT EXISTS media_type TEXT DEFAULT 'post'`;
 }
 
 module.exports = async function(req, res) {
@@ -357,6 +360,7 @@ function dbRowToLibItem(row) {
         likes: row.likes,
         comments: row.comments,
         isVideo: row.is_video,
+        mediaType: row.media_type || 'post',
         sourceAccount: row.source_account,
         importedAt: row.imported_at,
         used: row.used
@@ -399,13 +403,13 @@ async function addPostsToDb(orgId, posts, username, reels, stories) {
         var libraryId = 'lib_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         try {
             var result = await sql`
-                INSERT INTO library (library_id, id, org_id, display_url, thumbnail_url, caption, likes, comments, is_video, source_account)
+                INSERT INTO library (library_id, id, org_id, display_url, thumbnail_url, caption, likes, comments, is_video, media_type, source_account)
                 VALUES (
                     ${libraryId}, ${p.id}, ${orgId},
                     ${p.displayUrl || ''}, ${p.thumbnailUrl || p.displayUrl || ''},
                     ${p.caption || ''}, ${p.likes || 0},
                     ${p.comments || 0},
-                    ${p.isVideo || false}, ${username}
+                    ${p.isVideo || false}, ${p.mediaType || 'post'}, ${username}
                 )
                 ON CONFLICT DO NOTHING
             `;

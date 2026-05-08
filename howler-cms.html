@@ -1916,6 +1916,20 @@
             border-radius: 10px;
         }
 
+        .library-item-type {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 10px;
+            letter-spacing: 0.3px;
+        }
+        .library-item-type--post { background: rgba(30,30,30,0.85); color: #ccc; }
+        .library-item-type--reel { background: rgba(103,65,217,0.9); color: #fff; }
+        .library-item-type--story { background: rgba(224,80,20,0.9); color: #fff; }
+
         .library-pagination {
             display: flex;
             justify-content: center;
@@ -5848,9 +5862,10 @@
                 if (data.success && data.data.length > 0) {
                     grid.innerHTML = data.data.map(item => `
                         <div class="library-item ${item.used ? 'used' : ''}" data-id="${item.libraryId || item.id}">
-                            <img src="${INSTAGRAM_API_URL}/api/proxy/image?url=${encodeURIComponent(item.thumbnailUrl || item.displayUrl)}" 
+                            <img src="${INSTAGRAM_API_URL}/api/proxy/image?url=${encodeURIComponent(item.thumbnailUrl || item.displayUrl)}"
                                  alt="Library item"
                                  onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23262626%22 width=%22100%22 height=%22100%22/></svg>'">
+                            <span class="library-item-type library-item-type--${item.mediaType || 'post'}">${item.mediaType === 'reel' ? '▶ Reel' : item.mediaType === 'story' ? '◎ Story' : '◼ Post'}</span>
                             <span class="library-item-account">@${item.sourceAccount}</span>
                             <div class="library-item-overlay">
                                 <div class="library-item-stats">
