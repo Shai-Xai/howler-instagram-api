@@ -465,7 +465,6 @@ async function fetchInstagramProfile(username) {
             isVerified: !!u.is_verified
         };
 
-        console.log('USER KEYS:', Object.keys(u), 'ID:', u.id, 'PK:', u.pk);
 
         // Fetch posts, reels, stories in parallel
         var [postsRes, reelsRes, storiesRes] = await Promise.allSettled([
@@ -499,18 +498,15 @@ async function fetchInstagramProfile(username) {
         }
 
         var stories = [];
-        var _storiesDebug = null;
         if (storiesRes.status === 'fulfilled' && storiesRes.value.ok) {
             var d = await storiesRes.value.json();
-            _storiesDebug = d;
-            var raw = Array.isArray(d) ? d : (d.data || d.items || d.reel?.items || []);
-            if (d.error) raw = [];
-            stories = raw.slice(0, 12).map(function(s) { return mapMediaItem(s, 'story'); });
-        } else {
-            _storiesDebug = { status: storiesRes.status, reason: storiesRes.reason?.message };
+            if (!d.error) {
+                var raw = Array.isArray(d) ? d : (d.data || d.items || d.reel?.items || []);
+                stories = raw.slice(0, 12).map(function(s) { return mapMediaItem(s, 'story'); });
+            }
         }
 
-        return { success: true, profile: profile, posts: posts, reels: reels, stories: stories, _storiesDebug: _storiesDebug };
+        return { success: true, profile: profile, posts: posts, reels: reels, stories: stories };
     } catch (e) {
         return { success: false, error: e.message };
     }
