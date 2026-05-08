@@ -465,7 +465,7 @@ async function fetchInstagramProfile(username) {
             isVerified: !!u.is_verified
         };
 
-        console.log('USER ID:', userId, 'USERNAME:', u.username);
+        console.log('USER KEYS:', Object.keys(u), 'ID:', u.id, 'PK:', u.pk);
 
         // Fetch posts, reels, stories in parallel
         var [postsRes, reelsRes, storiesRes] = await Promise.allSettled([
