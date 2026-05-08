@@ -263,7 +263,9 @@ module.exports = async function(req, res) {
             return res.status(200).json({
                 success: true,
                 profile: igResult.profile,
-                posts: igResult.posts
+                posts: igResult.posts,
+                reels: igResult.reels,
+                stories: igResult.stories
             });
         }
 
