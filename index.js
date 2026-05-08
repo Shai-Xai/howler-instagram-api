@@ -479,7 +479,7 @@ async function fetchInstagramProfile(username) {
             fetch(RAPID_BASE + '/get_ig_user_stories.php', {
                 method: 'POST',
                 headers: { ...rapidHeaders(), 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: formBody({ username_or_url: igUrl, amount: 12 })
+                body: formBody({ username_or_url: username, amount: 12 })
             })
         ]);
 
@@ -498,6 +498,7 @@ async function fetchInstagramProfile(username) {
         var stories = [];
         if (storiesRes.status === 'fulfilled' && storiesRes.value.ok) {
             var d = await storiesRes.value.json();
+            console.log('STORIES:', JSON.stringify(d).slice(0, 400));
             var raw = Array.isArray(d) ? d : (d.data || d.items || d.reel?.items || []);
             if (d.error) raw = [];
             stories = raw.slice(0, 12).map(function(s) { return mapMediaItem(s, 'story'); });
